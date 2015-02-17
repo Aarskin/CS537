@@ -16,14 +16,29 @@ int main(int argc, char* argv[])
 		// Wait for user input
 		stdin_num_bytes = getline(&cmd, &assumed_num_chars, stdin);
 	
-		// Check input
+		// Check getline return value
 		if(stdin_num_bytes == -1)
 		{
 			printf("Error!\n");		
 		}
 		else // Parse cmd
 		{
+			bool lastWord = false;
+			int curChar = 0;
+			int word = 0
+			// Max possible words under assumption #4
+			char* words[] = (char*) malloc(512 * sizeof(char*));
 			
+			while(!lastWord)
+			{
+				wordsParseWord(cmd, &curChar);
+			}
+			
+			char* prog = 
+			char* args =
+			
+			printf("The program is: %s\n", program);
+			printf("The arguments are: %s\n", args);
 		}
 	
 	}	
