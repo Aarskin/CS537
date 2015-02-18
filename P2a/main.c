@@ -37,7 +37,8 @@ int main(int argc, char* argv[])
 			
 			while(!lastWord)
 			{
-				words[index] = ParseWord(&cmd, &curChar, stdin_num_bytes);
+				words[index] = ParseWord
+					(&cmd, &curChar, stdin_num_bytes, &lastWord);
 				index++;
 			}
 			
@@ -47,34 +48,46 @@ int main(int argc, char* argv[])
 			
 			//printf("The program is: %s\n", program);
 			//printf("The arguments are: %s\n", args);
-			printf(words[0]);
 		}	
 	}	
 	
 	exit(0);
 }
 
-char* ParseWord(char** cmd, int* pos, int cmd_size)
+char* ParseWord(char** cmd, int* pos, int cmd_size, bool* last)
 {
-	char* word = *cmd;
+	char* word = (char*) malloc(sizeof(*cmd));
 	char* temp = word;
+	int i = 0;
 	
 	// Tack characters on until we hit whitespace (or the end)
 	while(*pos < cmd_size)
 	{
-		if(!isspace(**cmd)) // Advance to the next char
+		char curChar = *(*cmd + *pos);
+		
+		if(!isspace(curChar))
 		{
-			temp++;
-			(*cmd)++;
-			//*pos++;		
+			*temp = curChar; // Track
+			
+			temp++; // Advance
+			++(*pos);
 		}
 		else
 		{
+			// Advance pos to start of the next word
+			while(isspace(*(&curChar + i)))
+			{
+				++i;
+				++(*pos);
+			}
+			
 			
 			*temp = 0; // Null terminate this word
 			return word;
 		}
 	}
+	
+	if(*pos == cmd_size) *last = true;
 	
 	return word;
 }
