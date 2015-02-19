@@ -1,6 +1,10 @@
 #include <stdlib.h>
 #include <stdio.h>
 #include <ctype.h>
+#include <sys/types.h>
+#include <sys/wait.h>
+#include <unistd.h>
+#include <string.h>
 #include "types.h"
 #include "methods.h"
 
@@ -11,12 +15,13 @@ int main(int argc, char* argv[])
 	// Assume 1024 char max +1 for NULL (from spec)
 	char*	cmd = (char*) malloc(1025 * sizeof(char));
 	size_t	cmd_size = sizeof(cmd); // 1025 bytes (1/char)
+	// Max possible words under assumption #4
+	char* args[512]; // Wasteful with memory atm *shrug*
 	
 	while(true) // Run forever (until ctrl+c, of course)
 	{
 		// Prompt
 		printf("mysh>");
-		//printf("Sizeof(int): %lu\t", sizeof(int)); // 4 bytes
 		
 		// Wait for user input, returns # chars read (-1 on error)
 		stdin_num_bytes = getline(&cmd, &cmd_size, stdin);
@@ -26,33 +31,75 @@ int main(int argc, char* argv[])
 		{
 			printf("Error!\n");		
 		}
-		else // Parse cmd
+		else // Parse words out of cmd
 		{
 			bool lastWord = false;
 			int curChar = 0;
-			int index = 0;
-			// Max possible words under assumption #4
-			char* words[512]; // Wasteful with memory atm *shrug*
-			
+			int index = 0;			
 			
 			while(!lastWord)
 			{
-				words[index] = ParseWord
-					(&cmd, &curChar, stdin_num_bytes, &lastWord);
+			/*
+				if(index == 0)
+					command = ParseWord(&cmd, &curChar, stdin_num_bytes, &lastWord);
+				else
+					args[index-1] = ParseWord(&cmd, &curChar, stdin_num_bytes, &lastWord);				
+					*/
+					
+				args[index] = ParseWord(&cmd, &curChar, stdin_num_bytes, &lastWord);				
+				
 				index++;
 			}
 			
-			
-			//char* prog = 
-			//char* args =
-			
-			//printf("The program is: %s\n", program);
-			//printf("The arguments are: %s\n", args);
-		}	
+			//printf("debug");
+		}
+		
+		if(strncmp(args[0], "exit", sizeof("exit")) == 0) 
+		{
+			exit(0); // Bail out		
+		}
+		else if(strncmp(args[0], "cd", sizeof("cd")) == 0)
+		{
+			int errChk = chdir(args[1]);
+			if(errChk == -1)
+				fprintf(stderr, "Error!\n");
+		}
+		else if(strncmp(args[0], "pwd", sizeof("pwd")) == 0)
+		{
+			char* cwd = getcwd(NULL, 0);
+			printf("%s\n", cwd);
+		}			
+		else // execvp command
+		{
+			int pid = fork();
+
+			// If fork returns 0, it's the child, -1 if error,
+			// else returns child's PID if it's the parent
+			if (pid == -1)
+				perror("Error forking.\n");    
+			else if (pid != 0)
+				wait(NULL);		
+			else // It's the child process
+			{
+				execvp(args[0], args);
+				
+				printf("execvp failed!\n");
+				exit(0);
+			}		
+		}
+		
 	}	
 	
 	exit(0);
 }
+/*
+void chdir(char * newdir){
+	int errChk = chdir(newdir );
+		if(errChk == -1)
+			fprintf(stderr, "Error!\n");
+}
+
+*/
 
 char* ParseWord(char** cmd, int* pos, int cmd_size, bool* last)
 {
@@ -87,7 +134,11 @@ char* ParseWord(char** cmd, int* pos, int cmd_size, bool* last)
 		}
 	}
 	
-	if(*pos == cmd_size) *last = true;
+	if(*pos >= cmd_size) 
+	{
+		*last = true;
+		return NULL;	
+	}
 	
 	return word;
 }
