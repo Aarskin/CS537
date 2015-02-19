@@ -3,6 +3,8 @@
 #include <ctype.h>
 #include <sys/types.h>
 #include <sys/wait.h>
+#include <sys/stat.h>
+#include <fcntl.h>
 #include <unistd.h>
 #include <string.h>
 #include "types.h"
@@ -11,6 +13,8 @@
 int main(int argc, char* argv[])
 {
 	int	stdin_num_bytes;
+	int	oRedirect;
+	int	aRedirect;
 	
 	// Assume 1024 char max +1 for NULL (from spec)
 	char*	cmd = (char*) malloc(1025 * sizeof(char));
@@ -51,7 +55,9 @@ int main(int argc, char* argv[])
 				index++;
 			}
 			
-			//printf("debug");
+			// Check for special features
+			oRedirect = CheckOverwriteRedirect(args);
+			aRedirect = CheckAppendRedirect(args);
 		}
 		
 		if(strncmp(args[0], "exit", sizeof("exit")) == 0) 
@@ -72,6 +78,18 @@ int main(int argc, char* argv[])
 		else // execvp command
 		{
 			int pid = fork();
+			
+			// Handle special feature filestreams
+			if(oRedirect != -1)
+			{
+				int file = open(args[oRedirect+1], O_CREAT | O_RDWR);
+				args[oRedirect] = NULL; // Terminate the 
+				
+				// PICK UP HERE!!
+				int chk = dup2(1, file);
+				perror(NULL);
+				
+			}
 
 			// If fork returns 0, it's the child, -1 if error,
 			// else returns child's PID if it's the parent
@@ -81,6 +99,7 @@ int main(int argc, char* argv[])
 				wait(NULL);		
 			else // It's the child process
 			{
+				
 				execvp(args[0], args);
 				
 				printf("execvp failed!\n");
@@ -92,6 +111,7 @@ int main(int argc, char* argv[])
 	
 	exit(0);
 }
+
 /*
 void chdir(char * newdir){
 	int errChk = chdir(newdir );
@@ -100,6 +120,44 @@ void chdir(char * newdir){
 }
 
 */
+
+int CheckOverwriteRedirect(char** args)
+{
+	int i = 0;
+	int sym = -1;
+	
+	while(args[i] != NULL)
+	{
+		if(strncmp(args[i], ">", sizeof(">")) == 0)
+		{
+			sym = i;
+			break;		
+		}
+		
+		++i;
+	}
+	
+	return sym;
+}
+
+int CheckAppendRedirect(char** args)
+{
+	int i = 0;
+	int sym = -1;
+	
+	while(args[i] != NULL)
+	{
+		if(strncmp(args[i], ">>", sizeof(">>")) == 0)
+		{
+			sym = i;
+			break;		
+		}
+		
+		++i;
+	}
+	
+	return sym;
+}
 
 char* ParseWord(char** cmd, int* pos, int cmd_size, bool* last)
 {
