@@ -88,7 +88,7 @@ int main(int argc, char* argv[])
 				assert(file != -1);
 				// PICK UP HERE!!
 				int chk = dup2(STDOUT_FILENO, file);
-
+				//close(STDOUT_FILENO);
 			    //what about redirects with no spaces around >
 
 				perror(NULL);
@@ -105,6 +105,8 @@ int main(int argc, char* argv[])
 			{
 				
 				execvp(args[0], args);
+				if(oRedirect != -1)
+					fflush(STDOUT_FILENO);
 				
 				printf("execvp failed!\n");
 				exit(0);
