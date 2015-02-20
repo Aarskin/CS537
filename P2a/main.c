@@ -16,6 +16,7 @@ int main(int argc, char* argv[])
 	int	stdin_num_bytes;
 	int	oRedirect;
 	int	aRedirect;
+	int pipe;
 	
 	// Assume 1024 char max +1 for NULL (from spec)
 	char*	cmd = (char*) malloc(1025 * sizeof(char));
@@ -26,7 +27,7 @@ int main(int argc, char* argv[])
 	while(true) // Run forever (until ctrl+c, of course)
 	{
 		// Prompt
-		printf("mysh>");
+		printf("mysh> ");
 		
 		// Wait for user input, returns # chars read (-1 on error)
 		stdin_num_bytes = getline(&cmd, &cmd_size, stdin);
@@ -59,6 +60,7 @@ int main(int argc, char* argv[])
 			// Check for special features
 			oRedirect = CheckOverwriteRedirect(args);
 			aRedirect = CheckAppendRedirect(args);
+			pipe = CheckPipe(args);
 		}
 		
 		if(strncmp(args[0], "exit", sizeof("exit")) == 0) 
@@ -83,7 +85,34 @@ int main(int argc, char* argv[])
 			// Handle special feature filestreams
 			if(oRedirect != -1)
 			{
-				int file = open(args[oRedirect+1], O_CREAT | O_RDWR, mode);
+				int file = open(args[oRedirect+1], O_CREAT | O_RDWR | O_TRUNC, mode);
+				args[oRedirect] = NULL; // Terminate the 
+				assert(file != -1);
+				// PICK UP HERE!!
+				//dup2 copies fd fine but output is not printed to file the second time this is called. Weird.
+				int chk = dup2(STDOUT_FILENO, file);
+				
+			    //what about redirects with no spaces around >
+
+				perror(NULL);
+				
+			}
+			//handle append redirect
+			if(aRedirect != -1)
+			{
+				int file = open(args[aRedirect+1], O_CREAT | O_RDWR | O_APPEND, mode);
+				args[aRedirect] = NULL; 
+				assert(file != -1);
+				
+				int chk = dup2(STDOUT_FILENO, file);			    
+				
+				perror(NULL);
+				
+			}
+			//handle pipes  Still need to call on pipe()
+			if(pipe != -1)
+			{
+				int file = open(args[pipe+1], O_CREAT | O_RDWR, mode);
 				args[oRedirect] = NULL; // Terminate the 
 				assert(file != -1);
 				// PICK UP HERE!!
@@ -91,7 +120,7 @@ int main(int argc, char* argv[])
 				//close(STDOUT_FILENO);
 			    //what about redirects with no spaces around >
 
-				perror(NULL);
+				assert(chk != -1);
 				
 			}
 
@@ -106,7 +135,7 @@ int main(int argc, char* argv[])
 				
 				execvp(args[0], args);
 				if(oRedirect != -1)
-					fflush(STDOUT_FILENO);
+					fflush(stdout);
 				
 				printf("execvp failed!\n");
 				exit(0);
@@ -154,6 +183,25 @@ int CheckAppendRedirect(char** args)
 	while(args[i] != NULL)
 	{
 		if(strncmp(args[i], ">>", sizeof(">>")) == 0)
+		{
+			sym = i;
+			break;		
+		}
+		
+		++i;
+	}
+	
+	return sym;
+}
+
+int CheckPipe(char** args)
+{
+	int i = 0;
+	int sym = -1;
+	
+	while(args[i] != NULL)
+	{
+		if(strncmp(args[i], "|", sizeof("|")) == 0)
 		{
 			sym = i;
 			break;		
