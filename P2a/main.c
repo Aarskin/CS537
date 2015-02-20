@@ -7,6 +7,7 @@
 #include <fcntl.h>
 #include <unistd.h>
 #include <string.h>
+#include <assert.h>
 #include "types.h"
 #include "methods.h"
 
@@ -78,15 +79,18 @@ int main(int argc, char* argv[])
 		else // execvp command
 		{
 			int pid = fork();
-			
+			mode_t mode = S_IRUSR | S_IWUSR | S_IWGRP | S_IROTH;
 			// Handle special feature filestreams
 			if(oRedirect != -1)
 			{
-				int file = open(args[oRedirect+1], O_CREAT | O_RDWR);
+				int file = open(args[oRedirect+1], O_CREAT | O_RDWR, mode);
 				args[oRedirect] = NULL; // Terminate the 
-				
+				assert(file != -1);
 				// PICK UP HERE!!
-				int chk = dup2(1, file);
+				int chk = dup2(STDOUT_FILENO, file);
+
+			    //what about redirects with no spaces around >
+
 				perror(NULL);
 				
 			}
