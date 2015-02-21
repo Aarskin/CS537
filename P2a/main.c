@@ -16,7 +16,8 @@ int main(int argc, char* argv[])
 	int	stdin_num_bytes;
 	int	oRedirect;
 	int	aRedirect;
-	int pipe;
+	int pip;
+	int file;
 	
 	// Assume 1024 char max +1 for NULL (from spec)
 	char*	cmd = (char*) malloc(1025 * sizeof(char));
@@ -60,7 +61,7 @@ int main(int argc, char* argv[])
 			// Check for special features
 			oRedirect = CheckOverwriteRedirect(args);
 			aRedirect = CheckAppendRedirect(args);
-			pipe = CheckPipe(args);
+			pip = CheckPipe(args);
 		}
 		
 		if(strncmp(args[0], "exit", sizeof("exit")) == 0) 
@@ -85,12 +86,13 @@ int main(int argc, char* argv[])
 			// Handle special feature filestreams
 			if(oRedirect != -1)
 			{
-				int file = open(args[oRedirect+1], O_CREAT | O_RDWR | O_TRUNC, mode);
+				file = open(args[oRedirect+1], O_CREAT | O_RDWR | O_TRUNC, mode);
 				args[oRedirect] = NULL; // Terminate the 
 				assert(file != -1);
 				// PICK UP HERE!!
 				//dup2 copies fd fine but output is not printed to file the second time this is called. Weird.
-				int chk = dup2(STDOUT_FILENO, file);
+				int chk = dup2( STDOUT_FILENO, file);
+				assert(chk != -1);
 				
 			    //what about redirects with no spaces around >
 
@@ -100,27 +102,30 @@ int main(int argc, char* argv[])
 			//handle append redirect
 			if(aRedirect != -1)
 			{
-				int file = open(args[aRedirect+1], O_CREAT | O_RDWR | O_APPEND, mode);
+				file = open(args[aRedirect+1], O_CREAT | O_RDWR | O_APPEND, mode);
 				args[aRedirect] = NULL; 
 				assert(file != -1);
 				
-				int chk = dup2(STDOUT_FILENO, file);			    
+				int chk = dup2(file, STDOUT_FILENO);
+				assert(chk != -1);			    
 				
 				perror(NULL);
 				
 			}
-			//handle pipes  Still need to call on pipe()
-			if(pipe != -1)
-			{
-				int file = open(args[pipe+1], O_CREAT | O_RDWR, mode);
-				args[oRedirect] = NULL; // Terminate the 
-				assert(file != -1);
-				// PICK UP HERE!!
-				int chk = dup2(STDOUT_FILENO, file);
-				//close(STDOUT_FILENO);
-			    //what about redirects with no spaces around >
-
+			//handle pipes 
+			//modify to handle TWO pipes
+			if(pip != -1)
+			{				
+				
+				//create a new fd to store output from first command
+				file = open(args[pip+1], O_CREAT | O_RDWR, mode);
+				int feed[2] = {file, STDOUT_FILENO};
+				//store stdout to fd file
+				int chk = pipe(feed);
 				assert(chk != -1);
+
+				args[pip] = NULL; 
+				assert(file != -1);
 				
 			}
 
@@ -132,10 +137,34 @@ int main(int argc, char* argv[])
 				wait(NULL);		
 			else // It's the child process
 			{
-				
-				execvp(args[0], args);
 				if(oRedirect != -1)
-					fflush(stdout);
+					setvbuf(stdout, NULL, _IONBF, 0);
+				//if piping, fork again to run first process 
+				//this should output to file since we piped output to file
+				if(pip != -1){
+					
+					int pid1 = fork();
+					if(pid1 == -1)
+						perror("Forking error 2.\n ");
+					//parent if pid2 != 0
+					else if(pid1 != 0)
+						wait(NULL);
+					else{
+
+					int chk1 = execvp(args[0], args);
+					assert(chk1 != -1);
+
+					//replace args with second command
+					args[0] = args[pip+1];
+					int chk = write(file, args[1], strlen(args[1]));
+					assert(chk != -1);
+
+					}
+					
+				}
+
+				//run process if no pipe, run second process if piping
+				execvp(args[0], args);
 				
 				printf("execvp failed!\n");
 				exit(0);
@@ -147,14 +176,6 @@ int main(int argc, char* argv[])
 	exit(0);
 }
 
-/*
-void chdir(char * newdir){
-	int errChk = chdir(newdir );
-		if(errChk == -1)
-			fprintf(stderr, "Error!\n");
-}
-
-*/
 
 int CheckOverwriteRedirect(char** args)
 {
