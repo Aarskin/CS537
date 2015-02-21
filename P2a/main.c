@@ -118,14 +118,14 @@ int main(int argc, char* argv[])
 			{				
 				
 				//create a new fd to store output from first command
-				file = open(args[pip+1], O_CREAT | O_RDWR, mode);
-				int feed[2] = {file, STDOUT_FILENO};
+				//file = open(args[pip+1], O_CREAT | O_RDWR, mode);
+				//int feed[2] = {file, STDOUT_FILENO};
 				//store stdout to fd file
-				int chk = pipe(feed);
-				assert(chk != -1);
+				//int chk = pipe(feed);
+				//assert(chk != -1);
 
 				args[pip] = NULL; 
-				assert(file != -1);
+				//assert(file != -1);
 				
 			}
 
@@ -142,8 +142,12 @@ int main(int argc, char* argv[])
 				//if piping, fork again to run first process 
 				//this should output to file since we piped output to file
 				if(pip != -1){
-					
+										
 					int pid1 = fork();
+					int feed[2] = {STDIN_FILENO, STDOUT_FILENO};
+					int chk2 = pipe(feed);
+					assert(chk2 != -1);
+
 					if(pid1 == -1)
 						perror("Forking error 2.\n ");
 					//parent if pid2 != 0
@@ -156,7 +160,7 @@ int main(int argc, char* argv[])
 
 					//replace args with second command
 					args[0] = args[pip+1];
-					int chk = write(file, args[1], strlen(args[1]));
+					int chk = write(STDIN_FILENO, args[1], strlen(args[1]));
 					assert(chk != -1);
 
 					}
