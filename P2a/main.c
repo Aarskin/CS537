@@ -52,13 +52,13 @@ int main(int argc, char* argv[])
 			{
 				args[index] = (char *) malloc(sizeof(char*));
 				args[index] = strtok(NULL, " \n");
-				 //break;
+				//break;
 				//args[index+1]=NULL;	
 			}
 
 			//	while(!lastWord)
 			//{				
-				//args[index] = ParseWord(&cmd, &curChar, stdin_num_bytes, &lastWord);		
+			//args[index] = ParseWord(&cmd, &curChar, stdin_num_bytes, &lastWord);		
 				
 			//	index++;
 			//}
@@ -117,46 +117,46 @@ int main(int argc, char* argv[])
 				perror(NULL);
 				
 			}
-				int feed[2];
-				//if piping, fork to run first process 
-				//this should output to file since we piped output to file
-				if(pip != -1){
+			int feed[2];
+			//if piping, fork to run first process 
+			//this should output to file since we piped output to file
+			if(pip != -1){
 					
-					pCmd[0] = args[pip+1];					
-					args[pip]=NULL;	
+				pCmd[0] = args[pip+1];					
+				args[pip]=NULL;	
 									
-					int chk2 = pipe(feed);
-					assert(chk2 != -1);
-					dup2(feed[0], 0);
-					//close(feed[0]);
-					int pid1 = fork();
-					if(pid1 == -1)
-						perror("Forking error 2.\n ");
-					//parent if pid2 != 0
-					else if(pid1 != 0)
-						wait(NULL);
-					else{
-						dup2(feed[1], 1);
-						//close(feed[1]);
-						int chk1 = execvp(args[0], args);
-						assert(chk1 != -1);
-					}					
-				}
-				//parse redirected input
-				if(pip != -1)
+				int chk2 = pipe(feed);
+				assert(chk2 != -1);
+				dup2(feed[0], 0);
+				//close(feed[0]);
+				int pid1 = fork();
+				if(pid1 == -1)
+					perror("Forking error 2.\n ");
+				//parent if pid2 != 0
+				else if(pid1 != 0)
+					wait(NULL);
+				else{
+					dup2(feed[1], 1);
+					//close(feed[1]);
+					int chk1 = execvp(args[0], args);
+					assert(chk1 != -1);
+				}					
+			}
+			//parse redirected input
+			if(pip != -1)
+			{
+				//char *buf = (char*) malloc(512*sizeof(char));
+				//size_t buf_size = sizeof(buf);
+				int i;
+				getline(&cmd, &cmd_size, stdin);
+				args[0] = pCmd[0];
+				args[1] = strtok(cmd, " \n");
+				for(i = 2; i < 50; i++)
 				{
-					char *buf = (char*) malloc(512*sizeof(char));
-					size_t buf_size = sizeof(buf);
-					int i;
-					getline(&buf, &buf_size, stdin);
-					args[0] = pCmd[0];
-					args[1] = strtok(buf, " \n");
-					for(i = 2; i < 50; i++)
-					{
-						args[i] = strtok(NULL, " \n");						
-					}
-					//free(buf);								
+					args[i] = strtok(NULL, " \n");						
 				}
+				//free(buf);								
+			}
 
 			int pid = fork(); ///////////////////////////////////FORK
 
@@ -172,12 +172,13 @@ int main(int argc, char* argv[])
 				//run process if no pipe, run second process if piping
 				execvp(args[0], args);
 				
-				printf("execvp failed!\n");
+				//printf("execvp failed!\n");
 				exit(0);
 			}		
-		}
-		
-	}	
+		}		
+	}
+	free(args);
+	free(cmd);
 	
 	exit(0);
 }
