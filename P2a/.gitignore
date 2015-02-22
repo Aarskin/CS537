@@ -2,3 +2,5 @@
 *~
 mysh
 *.txt
+.__afs*
+*.out
