@@ -128,7 +128,7 @@ int main(int argc, char* argv[])
 				int chk2 = pipe(feed);
 				assert(chk2 != -1);
 				dup2(feed[0], 0);
-				//close(feed[0]);
+				close(feed[0]);
 				int pid1 = fork();
 				if(pid1 == -1)
 					perror("Forking error 2.\n ");
@@ -137,7 +137,7 @@ int main(int argc, char* argv[])
 					wait(NULL);
 				else{
 					dup2(feed[1], 1);
-					//close(feed[1]);
+					close(feed[1]);
 					int chk1 = execvp(args[0], args);
 					assert(chk1 != -1);
 				}					
@@ -151,7 +151,7 @@ int main(int argc, char* argv[])
 				getline(&cmd, &cmd_size, stdin);
 				args[0] = pCmd[0];
 				args[1] = strtok(cmd, " \n");
-				for(i = 2; i < 50; i++)
+				for(i = 2; i < 20; i++)
 				{
 					args[i] = strtok(NULL, " \n");						
 				}
