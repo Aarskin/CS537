@@ -13,28 +13,69 @@
 
 int main(int argc, char* argv[])
 {
+	int	stdin_num_bytes;
 	int	oRedirect;
 	int	aRedirect;
 	int pip;
 	int file;
 	char *pCmd[2];
+	char *buf = (char*) malloc(512*sizeof(char));
+	size_t buf_size = sizeof(buf);
+	int te;
+	char *bufT = (char*) malloc(512*sizeof(char));
+	size_t bufT_size = sizeof(bufT);
 	
 	// Assume 1024 char max +1 for NULL (from spec)
 	char*	cmd = (char*) malloc(1025 * sizeof(char));
 	size_t	cmd_size = sizeof(cmd); // 1025 bytes (1/char)
 	// Max possible words under assumption #4
-	char* args[512];	
-	//char** args = (char**) malloc(512*sizeof(char*)); // Wasteful with memory atm *shrug*
+	char* args[50];	
+//char** args = (char**) malloc(512*sizeof(char*)); // Wasteful with memory atm *shrug*
 	
 	while(true) // Run forever (until ctrl+c, of course)
 	{
 		// Prompt
 		printf("mysh> ");
 		
-		ReadCommand(args, cmd, cmd_size); // into args
-		oRedirect = CheckOverwriteRedirect(args);
-		aRedirect = CheckAppendRedirect(args);
-		pip = CheckPipe(args);
+		// Wait for user input, returns # chars read (-1 on error)
+		stdin_num_bytes = getline(&cmd, &cmd_size, stdin);
+	
+		if(cmd[0] == '\n')
+			continue;
+		// Check getline return value 
+		if(stdin_num_bytes == -1)
+		{
+			printf("Error!\n");	
+			//perror(NULL);	
+		}
+		else // Parse words out of cmd
+		{
+			//bool lastWord = false;
+			//int curChar = 0;
+			int index = 0;	
+						
+			args[0] = strtok(cmd, " \n");
+			for(index = 1; index < 50; index++)
+			{
+				args[index] = (char *) malloc(sizeof(char*));
+				args[index] = strtok(NULL, " \n");
+				 //break;
+				//args[index+1]=NULL;	
+			}
+
+			//	while(!lastWord)
+			//{				
+				//args[index] = ParseWord(&cmd, &curChar, stdin_num_bytes, &lastWord);		
+				
+			//	index++;
+			//}
+			
+			// Check for special features
+			oRedirect = CheckOverwriteRedirect(args);
+			aRedirect = CheckAppendRedirect(args);
+			pip = CheckPipe(args);
+			te = CheckTee(args);
+		}
 		
 		if(strncmp(args[0], "exit", sizeof("exit")) == 0) 
 		{
@@ -52,91 +93,127 @@ int main(int argc, char* argv[])
 			printf("%s\n", cwd);
 		}			
 		else // fork and then execvp command
-		{			
-			mode_t mode = S_IRUSR | S_IWUSR | S_IWGRP | S_IROTH;
-			// Handle special feature filestreams
-			if(oRedirect != -1)
-			{
-				file = open(args[oRedirect+1], O_CREAT | O_RDWR | O_TRUNC, mode);
-				//FILE* out = fopen(args[oRedirect+1], "w+");
-				args[oRedirect] = NULL; // Terminate the arglist
-				//perror(NULL);
-				//assert(file != -1);
-				//dup2 copies fd fine but output is not printed to file the second time this is called. Weird.
-				int chk = dup2(file, STDOUT_FILENO);
-				assert(chk != -1);
+		{
+//call mytee////////////////////////////////////////////////////////////
+			//int feedT[2];			
 
-				perror(NULL);
-				
-			}
-			//handle append redirect
-			if(aRedirect != -1)
+			if(te != -1)
 			{
-				file = open(args[aRedirect+1], O_CREAT | O_RDWR | O_APPEND, mode);
-				args[aRedirect] = NULL; 
-				assert(file != -1);
-				
-				int chk = dup2(file, STDOUT_FILENO);
-				perror(NULL);
-				assert(chk != -1);			    
-				
-				
+			
+				//mytee( char** args, int fd[2]);
+				mytee(args, bufT, bufT_size,  te);
+				continue;
 			}
-			int feed[2];
-			//if piping, fork to run first process 
-			//this should output to file since we piped output to file
-			if(pip != -1){ 
-					
-				pCmd[0] = args[pip+1];					
-				args[pip]=NULL;	
-									
-				int chk2 = pipe(feed);	assert(chk2 != -1);
-				int pid1 = fork();
-				if(pid1 == -1)
-					perror("Forking error 2.\n ");
-				//parent if pid2 != 0
-				else if(pid1 != 0)
+			mode_t mode = S_IRUSR | S_IWUSR | S_IWGRP | S_IROTH;
+
+				int feed[2];
+				//if piping, fork to run first process 
+				//this should output to file since we piped output to file
+				if(pip != -1)
 				{
-					wait(NULL);
 					
-					int i;
-					dup2(feed[0], 0);
-					close(feed[0]);
-					getline(&cmd, &cmd_size, stdin); // stdin is the contents of the pipe!
-					
-					args[0] = pCmd[0]; // replace the old arguments for the second command
-					args[1] = strtok(cmd, " \n");
-					for(i = 2; i < 20; i++)
-					{
-						args[i] = strtok(NULL, " \n");						
+					pCmd[0] = args[pip+1];					
+					args[pip]=NULL;	
+									
+					int chk2 = pipe(feed);
+					assert(chk2 != -1);
+				
+					int pid1 = fork();
+					if(pid1 == -1)
+						printf("Error!\n");
+					//parent if pid2 != 0
+					else if(pid1 != 0)
+					{		   
+						
+						wait(NULL);
 					}
+					else{
+						//close(1);
+						dup2(feed[1], 1);
+						close(feed[1]);
+						
+						int chk1 = execvp(args[0], args);
+						assert(chk1 != -1);
+						exit(0);
+					}					
 				}
-				else{
-					dup2(feed[1], 1);
-					close(feed[1]);
-					int chk1 = execvp(args[0], args);
-					assert(chk1 != -1);
-				}					
-			}
+
 
 			int pid = fork(); ///////////////////////////////////FORK
 
 			// If fork returns 0, it's the child, -1 if error,
 			// else returns child's PID if it's the parent
 			if (pid == -1)
-				perror("Error forking.\n");    
+		printf("Error!\n");				
+		//perror("Error forking.\n");    
 			else if (pid != 0)
+			{
 				wait(NULL);	
+			}
 			else // It's the child process
 			{
+				// Handle special feature filestreams
+
+				//handle append redirect
+				if(aRedirect != -1)
+				{
+					file = open(args[aRedirect+1], O_CREAT | O_RDWR | O_APPEND | O_CLOEXEC, mode);
+					args[aRedirect] = NULL; 
+					assert(file != -1);
+				
+					int chk = dup2(file, 1);
+					//assert(chk != -1);			    
+if(chk == -1)
+printf("Error!\n");
+				
+					
+				
+				}
+//overwrite redirect
+			if(oRedirect != -1)
+			{
+				file = open(args[oRedirect+1], O_CREAT | O_RDWR | O_TRUNC|O_CLOEXEC, mode);
+				args[oRedirect] = NULL; // Terminate the 
+				assert(file != -1);
+
+				int chk = dup2(file, 1);
+				//assert(chk != -1);
+				
+			    //what about redirects with no spaces around >
+if(chk == -1)
+				printf("Error!\n");
+			}
+
+				//parse redirected input
+				if(pip != -1)
+				{
+					dup2(feed[0], 0);
+					close(feed[0]);
+
+					int i;
+					getline(&buf, &buf_size, stdin);
+					args[0] = pCmd[0];
+					args[1] = strtok(buf, " \n");
+					for(i = 2; i < 50; i++)
+					{
+						args[i] = strtok(NULL, " \n");						
+					}													
+				}
 				//run process if no pipe, run second process if piping
 				execvp(args[0], args);
+				
 				printf("Error!\n");
+				//exit(0);
 			}		
-		}		
+		}
+		
 	}
-	free(args);
+	free(buf);
+	free(bufT);
 	free(cmd);
+	int i;
+	for(i=0; i<50; i++)
+		free(args[i]);	
 	
 	exit(0);
 }
@@ -182,6 +259,23 @@ void ReadCommand(char** args, char* cmd, size_t cmd_size)
 	}
 }
 
+
+int CheckOverwriteRedirect(char** args)
+{
+	int i = 0;
+	int sym = -1;
+	
+	while(args[i] != NULL)
+	{
+		if(strncmp(args[i], "%", sizeof("%")) == 0)
+		{
+			sym = i;
+			break;		
+		}		
+		++i;
+	}	
+	return sym;
+}
 
 int CheckOverwriteRedirect(char** args)
 {
