@@ -40,3 +40,7 @@ user/bin/
 tools/mkfs
 version
 
+
+*~
+*/*~
+*/*/*~
