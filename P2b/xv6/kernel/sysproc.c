@@ -88,3 +88,8 @@ sys_uptime(void)
   release(&tickslock);
   return xticks;
 }
+
+int settickets(void)
+{
+	return 5; // Still setting trapping stuff up
+}
