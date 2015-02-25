@@ -89,7 +89,7 @@ sys_uptime(void)
   return xticks;
 }
 
-int settickets(void)
+int sys_settickets(void)
 {
 	return 5; // Still setting trapping stuff up
 }

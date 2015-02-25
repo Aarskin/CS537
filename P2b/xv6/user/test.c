@@ -1,9 +1,10 @@
 #include "types.h"
+#include "stat.h"
 #include "user.h"
 
 int main(int argc, char* argv[])
 {
 	printf(1, "Hello World! - Userspace\n");
-	settickets(); // "Hello World! - Kernelspace" atm
+	printf(1, "High %d! - Kernelspace\n", settickets());
 	exit();
 }
