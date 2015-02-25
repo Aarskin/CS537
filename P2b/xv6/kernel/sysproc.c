@@ -91,10 +91,24 @@ sys_uptime(void)
 
 int sys_settickets(void)
 {
-	return 5; // Still setting trapping stuff up
+	int tickets;
+	
+	if(argint(0, &tickets) < 0)
+	{
+		return -1;
+	}
+	
+	return tickets;
+/*
+	if(tickets % 10 != 0 || tickets < 10 || tickets > 150)
+	{
+		return -1; // Terrible, terrible input
+	}
+*/	
+	return 5; // Replace with logic!
 }
 
 int sys_getpinfo(void)
 {
-	return 5; // Still setting trapping stuff up
+	return 5; // Replace with logic!
 }

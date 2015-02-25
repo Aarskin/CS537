@@ -25,7 +25,7 @@ int getpid(void);
 char* sbrk(int);
 int sleep(int);
 int uptime(void);
-int settickets(void);
+int settickets(int tickets);
 int getpinfo(void);
 
 // user library functions (ulib.c)
