@@ -93,3 +93,8 @@ int sys_settickets(void)
 {
 	return 5; // Still setting trapping stuff up
 }
+
+int sys_getpinfo(void)
+{
+	return 5; // Still setting trapping stuff up
+}
