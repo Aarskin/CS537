@@ -67,6 +67,9 @@ found:
   p->context = (struct context*)sp;
   memset(p->context, 0, sizeof *p->context);
   p->context->eip = (uint)forkret;
+  
+  p->tickets = 10; // Default starting # of tickets
+  p->stride = lcm / 10;
 
   return p;
 }

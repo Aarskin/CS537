@@ -91,8 +91,8 @@ sys_uptime(void)
 
 int sys_settickets(void)
 {
+	static int lcm = 3603600;
 	int tickets;
-	int lcm = 3603600;
 	
 	if(argint(0, &tickets) < 0)
 	{

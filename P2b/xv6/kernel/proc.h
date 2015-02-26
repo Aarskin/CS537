@@ -57,7 +57,7 @@ struct context {
   uint eip;
 };
 
-//int lcm = 3603600;
+int lcm; // lcm of (10,20,30,...,150)
 enum procstate { UNUSED, EMBRYO, SLEEPING, RUNNABLE, RUNNING, ZOMBIE };
 
 // Per-process state
