@@ -92,20 +92,22 @@ sys_uptime(void)
 int sys_settickets(void)
 {
 	int tickets;
+	int lcm = 3603600;
 	
 	if(argint(0, &tickets) < 0)
 	{
-		return -1;
+		return -1; // No parameter?
 	}
 	
-	return tickets;
-/*
 	if(tickets % 10 != 0 || tickets < 10 || tickets > 150)
 	{
-		return -1; // Terrible, terrible input
+		return -1; // Bad parameter
 	}
-*/	
-	return 5; // Replace with logic!
+	
+	proc->tickets = tickets;		 // Assign tickets
+	proc->stride  = lcm / tickets; // Update stride value 
+	
+	return 0; // Success!
 }
 
 int sys_getpinfo(void)
