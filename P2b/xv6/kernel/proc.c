@@ -259,6 +259,8 @@ void
 scheduler(void)
 {
   struct proc *p;
+  int minPass;
+  int checks = 0;
 
   for(;;){
     // Enable interrupts on this processor.
@@ -266,14 +268,35 @@ scheduler(void)
 
     // Loop over process table looking for process to run.
     acquire(&ptable.lock);
-    for(p = ptable.proc; p < &ptable.proc[NPROC]; p++){
+    for(p = ptable.proc; p < &ptable.proc[NPROC]; p++)
+    {
+	 checks++;
+	 
       if(p->state != RUNNABLE)
-        continue;
+      	continue;
+      
+      // Check and store smallest pass val
+ 	 if(p->pass < minPass)
+ 	 {
+		minPass = p->pass;
+		proc = p; // This is the front runner
+		
+		// 1 round of checks
+		if(checks < NPROC)
+			continue;
+ 	 }
 
-      // Switch to chosen process.  It is the process's job
-      // to release ptable.lock and then reacquire it
-      // before jumping back to us.
-      proc = p;
+	 // This num + 360360 would cause overflow
+	 // 360360 is the largest possible stride (lcm / 10)
+	 if(minPass > 4294606936)
+	 {
+	 	ResetPass(); // Still needs to be written
+	 }
+      // Switch to chosen process (after checking them all once).  
+      // It is the process's job to release ptable.lock and then 
+      // reacquire it before jumping back to us.
+      //proc = p;
+      p->pass = p->pass + p->stride; // Update before running
       switchuvm(p);
       p->state = RUNNING;
       swtch(&cpu->scheduler, proc->context);
@@ -282,6 +305,7 @@ scheduler(void)
       // Process is done running for now.
       // It should have changed its p->state before coming back.
       proc = 0;
+      checks = 0;
     }
     release(&ptable.lock);
 
