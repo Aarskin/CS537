@@ -1,5 +1,8 @@
 #ifndef _PROC_H_
 #define _PROC_H_
+#ifndef _PSTAT_H_
+#define _PSTAT_H_
+
 // Segments in proc->gdt.
 // Also known to bootasm.S and trapasm.S
 #define SEG_KCODE 1  // kernel code
@@ -64,6 +67,17 @@ struct context {
 
 enum procstate { UNUSED, EMBRYO, SLEEPING, RUNNABLE, RUNNING, ZOMBIE };
 
+struct pstat {
+  int inuse;
+  int pid;
+  char name[16];
+  int tickets;
+  int pass;
+  int stride;
+  int n_schedule;
+
+};
+
 // Per-process state
 struct proc {
   uint sz;                     // Size of process memory (bytes)
@@ -91,3 +105,4 @@ struct proc {
 //   expandable heap
 
 #endif // _PROC_H_
+#endif //_PSTAT_H

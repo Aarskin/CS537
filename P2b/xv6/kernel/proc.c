@@ -19,6 +19,14 @@ extern void trapret(void);
 
 static void wakeup1(void *chan);
 
+struct *ptable getPtable()
+{
+  return ptable;
+
+}
+
+
+
 void
 pinit(void)
 {
@@ -45,6 +53,7 @@ allocproc(void)
 found:
   p->state = EMBRYO;
   p->pid = nextpid++;
+  p->pass = getMinPass - 20; ////////////////////
   release(&ptable.lock);
 
   // Allocate kernel stack if possible.
@@ -333,6 +342,58 @@ scheduler(void)
 
   }
 }
+////////////////////////
+
+int getMinPass()
+{
+  int minPass = 0;
+  for(p = ptable.proc; p < &ptable.proc[NPROC]; p++)
+    {
+      if minPass < p->pass;
+      minPass = p->pass;
+    }
+  return minPass;
+}
+
+//run the process with the lowest pass value
+void stride_scheduler(void)
+{
+  struct proc *p;
+
+  for(;;){
+    // Enable interrupts on this processor.
+    sti();
+
+    // Loop over process table looking for process to run.
+    acquire(&ptable.lock);
+    for(p = ptable.proc; p < &ptable.proc[NPROC]; p++){
+      if(p->state != RUNNABLE)
+        continue;
+
+      // Switch to chosen process.  It is the process's job
+      // to release ptable.lock and then reacquire it
+      // before jumping back to us.
+      //chose the process with the lowest pass value
+
+      if(p->pass <= getMinPass())
+	{
+	  proc = p;
+	  switchuvm(p);
+	  p->state = RUNNING;
+	  swtch(&cpu->stride_scheduler, proc->context);
+	  switchkvm();
+
+	  // Process is done running for now.
+	  // It should have changed its p->state before coming back.
+	  p->pass = p->pass + p->stride;
+	  proc = 0;
+	}
+    }
+    release(&ptable.lock);
+
+  }
+}
+/////////////////////////
 
 // Must alredy hold ptable.lock
 int lowerpassval(int amt)
@@ -367,7 +428,7 @@ sched(void)
   if(readeflags()&FL_IF)
     panic("sched interruptible");
   intena = cpu->intena;
-  swtch(&proc->context, cpu->scheduler);
+  swtch(&proc->context, cpu->stride_scheduler);
   cpu->intena = intena;
 }
 
