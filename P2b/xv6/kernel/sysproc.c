@@ -6,6 +6,42 @@
 #include "proc.h"
 #include "sysfunc.h"
 
+
+int getpinfo(struct pstat* )
+{
+  struct ptable *pt = getPtable();  
+
+  acquire(&ptable.lock);
+  
+  struct proc *p;
+  //make array of pstat's
+  pstat *pstatA = (pstat*) malloc(NPROC * sizeof(struct pstat));
+  
+
+  int i;
+  //printf("PID \t Stride \t tickets \t pass \t n_schedule \t name \n " );
+  for(i = 0; i < NPROC; i++ )
+    //(p = ptable.proc; p < &ptable.proc[NPROC]; p++)
+    {
+      p = pt.proc[i];
+
+      pstatA[i]->pid = p->pid;
+      pstatA[i]->stride = p->stride;
+      pstatA[i]->name = p->name;
+      pstatA[i]->tickets = p->tickets;
+      pstatA[i]->pass = p->pass;
+      pstatA[i]->n_schedule = p->n_schedule;
+
+      //print out the stats to stdout
+      printf("PID %i; \t stride %i \t tickets %i; \t pass %i; \t n_schedule %i; \t name %s \n", p->pid, p->stride, p->tickets, p->pass, p->n_schedule, p->name );
+
+    }
+  release(&ptable.lock);
+  free(pstatA);
+}
+
+
+
 int
 sys_fork(void)
 {
