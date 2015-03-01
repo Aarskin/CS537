@@ -313,10 +313,6 @@ scheduler(void)
 	 	lowerpassval(minPass);
 	 }
 	 /**/
-	 
-	 cprintf("%d\n", checks);
-      
-      cprintf("%d\n", checks);
       
       // Switch to chosen process (after checking them all once).  
       // It is the process's job to release ptable.lock and then 
