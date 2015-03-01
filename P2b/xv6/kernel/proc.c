@@ -68,8 +68,11 @@ found:
   memset(p->context, 0, sizeof *p->context);
   p->context->eip = (uint)forkret;
   
+  // My only changes
   p->tickets = 10; // Default starting # of tickets
-  p->stride = lcm / 10;
+  p->stride = LCM / 10;
+  p->pass = 0; // Dont let this float
+  //
 
   return p;
 }
@@ -259,8 +262,13 @@ void
 scheduler(void)
 {
   struct proc *p;
-  int minPass;
+  
+  int minPass = INT_MAX;
+  /**/
+  int maxPass = INT_MIN;
+  /**/
   int checks = 0;
+  
 
   for(;;){
     // Enable interrupts on this processor.
@@ -273,43 +281,78 @@ scheduler(void)
 	 checks++;
 	 
       if(p->state != RUNNABLE)
+      {
+      	//cprintf("not runnable");
       	continue;
+      }
+      
       
       // Check and store smallest pass val
  	 if(p->pass < minPass)
  	 {
 		minPass = p->pass;
-		proc = p; // This is the front runner
-		
-		// 1 round of checks
-		if(checks < NPROC)
-			continue;
+		proc = p; // This is the front runner		
  	 }
-
-	 // This num + 360360 would cause overflow
-	 // 360360 is the largest possible stride (lcm / 10)
-	 if(minPass > 4294606936)
+ 	 
+ 	 
+ 	 // Keep an eye on the highest pass val (overflow)
+ 	 if(p->pass > maxPass)
+ 	 {
+ 	 	maxPass = p->pass;
+ 	 }
+ 	 
+ 	 
+ 	 // 64 checks
+	 if(checks < NPROC)
+		continue; // Skip the rest this time
+	
+	 /**/
+	 // Deal with overflow concerns
+	 if(maxPass > CONSERVATIVE_CEIL)
 	 {
-	 	ResetPass(); // Still needs to be written
+	 	lowerpassval(minPass);
 	 }
+	 /**/
+	 
+	 cprintf("%d\n", checks);
+      
+      cprintf("%d\n", checks);
+      
       // Switch to chosen process (after checking them all once).  
       // It is the process's job to release ptable.lock and then 
       // reacquire it before jumping back to us.
-      //proc = p;
-      p->pass = p->pass + p->stride; // Update before running
-      switchuvm(p);
-      p->state = RUNNING;
+      proc = p;
+      //proc->pass = proc->pass + proc->stride; // Update before running
+      switchuvm(proc);
+      proc->state = RUNNING;
       swtch(&cpu->scheduler, proc->context);
       switchkvm();
 
       // Process is done running for now.
       // It should have changed its p->state before coming back.
       proc = 0;
-      checks = 0;
+      checks = 0; // Reset check counter
     }
     release(&ptable.lock);
 
   }
+}
+
+// Must alredy hold ptable.lock
+int lowerpassval(int amt)
+{
+	struct proc *p;
+	
+	if(!holding(&ptable.lock))
+		panic("lower ptable.lock");
+	
+	for(p = ptable.proc; p < &ptable.proc[NPROC]; p++)
+	{
+		p->pass = p->pass - amt; // Lower every process by at most minPass
+	}
+	
+	cprintf("CUT OFF!!");
+	return 0;
 }
 
 // Enter scheduler.  Must hold only ptable.lock

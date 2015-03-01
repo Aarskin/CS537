@@ -10,6 +10,11 @@
 #define SEG_TSS   6  // this process's task state
 #define NSEGS     7
 
+#define LCM	   3603600 // lcm of (10,20,30,...,150)
+#define CONSERVATIVE_CEIL 4000000000u
+#define INT_MIN	0
+#define INT_MAX	-1 
+
 // Per-CPU state
 struct cpu {
   uchar id;                    // Local APIC ID; index into cpus[] below
@@ -57,7 +62,6 @@ struct context {
   uint eip;
 };
 
-int lcm; // lcm of (10,20,30,...,150)
 enum procstate { UNUSED, EMBRYO, SLEEPING, RUNNABLE, RUNNING, ZOMBIE };
 
 // Per-process state

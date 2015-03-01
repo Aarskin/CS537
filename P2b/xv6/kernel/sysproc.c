@@ -91,7 +91,6 @@ sys_uptime(void)
 
 int sys_settickets(void)
 {
-	static int lcm = 3603600;
 	int tickets;
 	
 	if(argint(0, &tickets) < 0)
@@ -105,7 +104,7 @@ int sys_settickets(void)
 	}
 	
 	proc->tickets = tickets;		 // Assign tickets
-	proc->stride  = lcm / tickets; // Update stride value 
+	proc->stride  = LCM / tickets; // Update stride value 
 	
 	return 0; // Success!
 }
