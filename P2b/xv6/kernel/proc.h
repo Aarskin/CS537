@@ -75,7 +75,6 @@ struct pstat {
   int pass;
   int stride;
   int n_schedule;
-
 };
 
 // Per-process state
@@ -96,6 +95,7 @@ struct proc {
   int tickets;				 // Number of tickets proc holds
   int pass;				 // Pass value
   int stride;				 // Stride value
+  int n_schedule;			 // # Times scheduled
 };
 
 // Process memory is laid out contiguously, low addresses first:

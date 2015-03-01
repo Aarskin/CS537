@@ -64,6 +64,22 @@ argptr(int n, char **pp, int size)
   return 0;
 }
 
+/*
+// Mimic argptr for struct
+int
+argstruct(int n, struct pstat **pp, int size)
+{
+  int i;
+  
+  if(argint(n, &i) < 0)
+    return -1;
+  if((uint)i >= proc->sz || (uint)i+size > proc->sz)
+    return -1;
+  *pp = (char*)i;
+  return 0;
+}
+*/
+
 // Fetch the nth word-sized system call argument as a string pointer.
 // Check that the pointer is valid and the string is nul-terminated.
 // (There is no shared writable memory, so the string can't change

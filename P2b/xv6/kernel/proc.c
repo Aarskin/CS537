@@ -14,18 +14,12 @@ struct {
 static struct proc *initproc;
 
 int nextpid = 1;
+int minPass = INT_MAX;
+int maxPass = INT_MIN;
 extern void forkret(void);
 extern void trapret(void);
 
 static void wakeup1(void *chan);
-
-struct *ptable getPtable()
-{
-  return ptable;
-
-}
-
-
 
 void
 pinit(void)
@@ -46,14 +40,18 @@ allocproc(void)
   acquire(&ptable.lock);
   for(p = ptable.proc; p < &ptable.proc[NPROC]; p++)
     if(p->state == UNUSED)
+    {
+      lowerpassval(minPass);
+      
       goto found;
+    }
   release(&ptable.lock);
   return 0;
 
 found:
   p->state = EMBRYO;
   p->pid = nextpid++;
-  p->pass = getMinPass - 20; ////////////////////
+  //p->pass = getMinPass() - 20; ////////////////////
   release(&ptable.lock);
 
   // Allocate kernel stack if possible.
@@ -81,6 +79,8 @@ found:
   p->tickets = 10; // Default starting # of tickets
   p->stride = LCM / 10;
   p->pass = 0; // Dont let this float
+  p->n_schedule = 0;
+  //p->inuse = 1;
   //
 
   return p;
@@ -271,13 +271,8 @@ void
 scheduler(void)
 {
   struct proc *p;
-  
-  int minPass = INT_MAX;
-  /**/
-  int maxPass = INT_MIN;
-  /**/
-  int checks = 0;
-  
+
+  int checks = 0;  
 
   for(;;){
     // Enable interrupts on this processor.
@@ -304,7 +299,7 @@ scheduler(void)
  	 }
  	 
  	 
- 	 // Keep an eye on the highest pass val (overflow)
+ 	 // Keep an eye on the highest pass val (for overflow)
  	 if(p->pass > maxPass)
  	 {
  	 	maxPass = p->pass;
@@ -313,21 +308,20 @@ scheduler(void)
  	 
  	 // 64 checks
 	 if(checks < NPROC)
-		continue; // Skip the rest this time
+		continue; // p++
 	
-	 /**/
 	 // Deal with overflow concerns
 	 if(maxPass > CONSERVATIVE_CEIL)
 	 {
 	 	lowerpassval(minPass);
 	 }
-	 /**/
       
       // Switch to chosen process (after checking them all once).  
       // It is the process's job to release ptable.lock and then 
       // reacquire it before jumping back to us.
       proc = p;
-      //proc->pass = proc->pass + proc->stride; // Update before running
+      proc->pass = proc->pass + proc->stride; // Update before running
+      proc->n_schedule++; // Increment
       switchuvm(proc);
       proc->state = RUNNING;
       swtch(&cpu->scheduler, proc->context);
@@ -347,15 +341,17 @@ scheduler(void)
 int getMinPass()
 {
   int minPass = 0;
+  struct proc *p;
+  
   for(p = ptable.proc; p < &ptable.proc[NPROC]; p++)
     {
-      if minPass < p->pass;
+      if (minPass < p->pass);
       minPass = p->pass;
     }
   return minPass;
 }
 
-//run the process with the lowest pass value
+/*/run the process with the lowest pass value
 void stride_scheduler(void)
 {
   struct proc *p;
@@ -380,7 +376,7 @@ void stride_scheduler(void)
 	  proc = p;
 	  switchuvm(p);
 	  p->state = RUNNING;
-	  swtch(&cpu->stride_scheduler, proc->context);
+	  swtch(&cpu->scheduler, proc->context);
 	  switchkvm();
 
 	  // Process is done running for now.
@@ -393,7 +389,7 @@ void stride_scheduler(void)
 
   }
 }
-/////////////////////////
+/*////////////////////////
 
 // Must alredy hold ptable.lock
 int lowerpassval(int amt)
@@ -405,6 +401,9 @@ int lowerpassval(int amt)
 	
 	for(p = ptable.proc; p < &ptable.proc[NPROC]; p++)
 	{
+		if(p->state == UNUSED)
+			continue;
+			
 		p->pass = p->pass - amt; // Lower every process by at most minPass
 	}
 	
@@ -428,7 +427,7 @@ sched(void)
   if(readeflags()&FL_IF)
     panic("sched interruptible");
   intena = cpu->intena;
-  swtch(&proc->context, cpu->stride_scheduler);
+  swtch(&proc->context, cpu->scheduler);
   cpu->intena = intena;
 }
 

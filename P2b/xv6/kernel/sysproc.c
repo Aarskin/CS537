@@ -5,42 +5,59 @@
 #include "mmu.h"
 #include "proc.h"
 #include "sysfunc.h"
+#include "spinlock.h"
+//#include "user.h"
 
+extern struct {
+  struct spinlock lock;
+  struct proc proc[NPROC];
+} ptable;
 
-int getpinfo(struct pstat* )
+int sys_getpinfo(void)
 {
-  struct ptable *pt = getPtable();  
+  struct pstat* pstatA;
+
+  if(argptr(1, (char**)&pstatA, sizeof(struct pstat)) < 0)
+  {
+  	 cprintf("didn't parse arg");
+  	return -1;
+  }
+
+  //struct ptable *pt = ptable;  
 
   acquire(&ptable.lock);
   
-  struct proc *p;
+  struct proc* p;
   //make array of pstat's
-  pstat *pstatA = (pstat*) malloc(NPROC * sizeof(struct pstat));
+  //struct pstat* pstatA = (struct pstat*) malloc((uint)(NPROC * sizeof(struct pstat)));
   
 
-  int i;
-  //printf("PID \t Stride \t tickets \t pass \t n_schedule \t name \n " );
-  for(i = 0; i < NPROC; i++ )
-    //(p = ptable.proc; p < &ptable.proc[NPROC]; p++)
-    {
-      p = pt.proc[i];
-
-      pstatA[i]->pid = p->pid;
-      pstatA[i]->stride = p->stride;
-      pstatA[i]->name = p->name;
-      pstatA[i]->tickets = p->tickets;
-      pstatA[i]->pass = p->pass;
-      pstatA[i]->n_schedule = p->n_schedule;
-
-      //print out the stats to stdout
-      printf("PID %i; \t stride %i \t tickets %i; \t pass %i; \t n_schedule %i; \t name %s \n", p->pid, p->stride, p->tickets, p->pass, p->n_schedule, p->name );
-
+  int i = 0;
+  //printf("PID \t Stride \t tickets \t pass \t n_schedule \t name \n ");
+  for/*(i = 0; i < NPROC; i++ )
+     */(p = ptable.proc; p < &ptable.proc[NPROC]; p++)
+    { 
+    
+      p = &ptable.proc[i];
+	 
+      (pstatA + i)->pid = p->pid;
+      (pstatA + i)->stride = p->stride;
+      strncpy((pstatA+i)->name, p->name, 16);//(pstatA + i)->name = p->name;
+      (pstatA + i)->tickets = p->tickets;
+      (pstatA + i)->pass = p->pass;
+      (pstatA + i)->n_schedule = p->n_schedule;
+      if((p->state) != UNUSED  )
+	      (pstatA + i)->inuse = 1;
+      
+		 //print out the stats to stdout
+	  if((p->state) != UNUSED)
+		 cprintf("PID %d; \t stride %d \t tickets %d; \t pass %d; \t n_schedule %d; \t name %s \n", p->pid, p->stride, p->tickets, p->pass, p->n_schedule, p->name );
+      i++; // Increment index
     }
   release(&ptable.lock);
-  free(pstatA);
+  return 0;
+  //free(pstatA);
 }
-
-
 
 int
 sys_fork(void)
@@ -143,9 +160,4 @@ int sys_settickets(void)
 	proc->stride  = LCM / tickets; // Update stride value 
 	
 	return 0; // Success!
-}
-
-int sys_getpinfo(void)
-{
-	return 5; // Replace with logic!
 }
