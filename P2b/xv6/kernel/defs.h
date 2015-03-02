@@ -99,6 +99,7 @@ struct proc*    copyproc(struct proc*);
 void            exit(void);
 int             fork(void);
 int			 getMinPass(void);
+struct proc* 	 getminproc(void);
 int             growproc(int);
 int             kill(int);
 int			 lowerpassval(int);

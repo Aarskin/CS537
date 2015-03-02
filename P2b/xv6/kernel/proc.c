@@ -14,6 +14,7 @@ struct {
 static struct proc *initproc;
 
 int nextpid = 1;
+int curMin;
 int minPass = INT_MAX;
 int maxPass = INT_MIN;
 extern void forkret(void);
@@ -270,126 +271,91 @@ wait(void)
 void
 scheduler(void)
 {
-  struct proc *p;
-
-  int checks = 0;  
+  struct proc *p;  
 
   for(;;){
     // Enable interrupts on this processor.
     sti();
-
-    // Loop over process table looking for process to run.
-    acquire(&ptable.lock);
-    for(p = ptable.proc; p < &ptable.proc[NPROC]; p++)
-    {
-	 checks++;
-	 
-      if(p->state != RUNNABLE)
-      {
-      	//cprintf("not runnable");
-      	continue;
-      }
-      
-      
-      // Check and store smallest pass val
- 	 if(p->pass < minPass)
- 	 {
-		minPass = p->pass;
-		proc = p; // This is the front runner		
- 	 }
- 	 
- 	 
- 	 // Keep an eye on the highest pass val (for overflow)
- 	 if(p->pass > maxPass)
- 	 {
- 	 	maxPass = p->pass;
- 	 }
- 	 
- 	 
- 	 // 64 checks
-	 if(checks < NPROC)
-		continue; // p++
 	
-	 // Deal with overflow concerns
-	 if(maxPass > CONSERVATIVE_CEIL)
-	 {
-	 	lowerpassval(minPass);
-	 }
-      
-      // Switch to chosen process (after checking them all once).  
-      // It is the process's job to release ptable.lock and then 
-      // reacquire it before jumping back to us.
-      proc = p;
-      proc->pass = proc->pass + proc->stride; // Update before running
-      proc->n_schedule++; // Increment
-      switchuvm(proc);
-      proc->state = RUNNING;
-      swtch(&cpu->scheduler, proc->context);
-      switchkvm();
-
-      // Process is done running for now.
-      // It should have changed its p->state before coming back.
-      proc = 0;
-      checks = 0; // Reset check counter
-    }
-    release(&ptable.lock);
-
-  }
-}
-////////////////////////
-
-int getMinPass()
-{
-  int minPass = 0;
-  struct proc *p;
-  
-  for(p = ptable.proc; p < &ptable.proc[NPROC]; p++)
-    {
-      if (minPass < p->pass);
-      minPass = p->pass;
-    }
-  return minPass;
-}
-
-/*/run the process with the lowest pass value
-void stride_scheduler(void)
-{
-  struct proc *p;
-
-  for(;;){
-    // Enable interrupts on this processor.
-    sti();
-
     // Loop over process table looking for process to run.
     acquire(&ptable.lock);
-    for(p = ptable.proc; p < &ptable.proc[NPROC]; p++){
+    //for(p = ptable.proc; p < &ptable.proc[NPROC]; p++){
+      
+      /*
+      if(p->state != UNUSED) // Initialized
+      {
+      	if(firstProc)
+      	{
+      		curMin = p->pass; // Start with the first proc
+      		firstProc = 0;
+      	}
+      	else if(p->pass < curMin)
+      	{
+      		curMin = p->pass;
+      	}
+      }    
+      
       if(p->state != RUNNABLE)
         continue;
-
+        */
+        
+      p = getminproc();
+        
       // Switch to chosen process.  It is the process's job
       // to release ptable.lock and then reacquire it
       // before jumping back to us.
-      //chose the process with the lowest pass value
+      if(p != 0) // there was a runnable...
+      {
+      	 // Update pass and n_schedule
+      	 p->pass += p->stride;
+      	 p->n_schedule++;
+      	 
+		 proc = p;
+		 switchuvm(p);
+		 p->state = RUNNING;
+		 swtch(&cpu->scheduler, proc->context);
+		 switchkvm();
 
-      if(p->pass <= getMinPass())
-	{
-	  proc = p;
-	  switchuvm(p);
-	  p->state = RUNNING;
-	  swtch(&cpu->scheduler, proc->context);
-	  switchkvm();
-
-	  // Process is done running for now.
-	  // It should have changed its p->state before coming back.
-	  p->pass = p->pass + p->stride;
-	  proc = 0;
-	}
-    }
+		 // Process is done running for now.
+		 // It should have changed its p->state before coming back.
+		 proc = 0;
+      }
+    //}
     release(&ptable.lock);
 
   }
 }
-/*////////////////////////
+
+struct proc* getminproc()
+{
+	struct proc* p; // for iteration
+	struct proc* retProc = 0;
+	int firstProc = 1;
+	
+	for(p = ptable.proc; p < &ptable.proc[NPROC]; p++)
+	{		
+	
+		if(p->state != RUNNABLE)
+		   continue;
+        
+		 if(p->state != UNUSED) // P is initialized
+		 {
+		 	if(firstProc)
+		 	{
+		 		curMin = p->pass; // Start with the first proc
+		 		retProc = p;
+		 		firstProc = 0;
+		 	}
+		 	else if(p->pass < curMin)
+		 	{
+		 		curMin = p->pass;
+		 		retProc = p;
+		 	}
+		 } 
+	}
+	
+	return retProc;
+}
 
 // Must alredy hold ptable.lock
 int lowerpassval(int amt)
@@ -407,7 +373,6 @@ int lowerpassval(int amt)
 		p->pass = p->pass - amt; // Lower every process by at most minPass
 	}
 	
-	cprintf("CUT OFF!!");
 	return 0;
 }
 
