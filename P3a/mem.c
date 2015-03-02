@@ -6,6 +6,7 @@
 #include "else.h"
 
 extern bool initialized;
+struct FreeHeader* head;
 
 void* Mem_Init(int sizeOfRegion, int slabSize)
 {
@@ -13,17 +14,25 @@ void* Mem_Init(int sizeOfRegion, int slabSize)
 
 	if(!initialized) // Only do this stuff once
 	{
+		// Spec'd
 		specialSize = slabSize;
-		//const char* map = "procMap";
+		
+		// Maybe for thread-safety?
+		/*
+		const char* map = "procMap";
+		int newFile = open("procMap", O_RDWR); // Open file for mapping
+		assert(newFile != -1); // Bail on error
+		*/
 
-		//int newFile = open("procMap", O_RDWR); // Open file for mapping
-		//assert(newFile != -1); // Bail on error
-
+		// The allocation
 		addr = mmap(NULL, sizeOfRegion, PROT_READ | PROT_WRITE, 
-			MAP_ANON | MAP_PRIVATE, -1, 0); // Private to proc 
+			MAP_ANON | MAP_PRIVATE /*MAP_SHARED*/, -1 /*newFile*/, 0);
 			
 		assert(addr != MAP_FAILED); // Bail on error (for now?)
-		initialized = true;	
+		initialized = true;
+		
+		// Use the same space to track freelist
+		
 	}
 	
 	return addr; // Null pointer when initialized already!
