@@ -22,7 +22,8 @@ void* Mem_Init(int sizeOfRegion, int slabSize)
 		addr = mmap(NULL, sizeOfRegion, PROT_READ | PROT_WRITE, 
 			MAP_ANON | MAP_PRIVATE, -1, 0); // Private to proc 
 			
-		assert(addr != MAP_FAILED); // Bail on error (for now?)	
+		assert(addr != MAP_FAILED); // Bail on error (for now?)
+		initialized = true;	
 	}
 	
 	return addr; // Null pointer when initialized already!

@@ -7,5 +7,7 @@ int main(int argc, char* argv[])
 	printf("Hello World!\n");
 	void* addr = Mem_Init(15, 8);	
 	printf("Addr: %p\n", addr);
+	addr = Mem_Init(25, 16);
+	printf("Addr: %p\n", addr);
 	exit(0);
 }
