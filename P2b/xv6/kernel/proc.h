@@ -14,7 +14,7 @@
 #define NSEGS     7
 
 #define LCM	   3603600 // lcm of (10,20,30,...,150)
-#define CONSERVATIVE_CEIL 4000000000u
+#define LARGE_NUMBER 2000000000u
 #define INT_MIN	0
 #define INT_MAX	-1 
 

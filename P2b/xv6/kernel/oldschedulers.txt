@@ -1,0 +1,166 @@
+
+/*
+void
+scheduler(void)
+{
+
+	cprintf("inside scheduler\n");
+
+  struct proc *p;
+  struct proc *tempP;
+  int first = 1;
+  int checks = 0;  
+
+  for(;;){
+    // Enable interrupts on this processor.
+    sti();
+    
+    checks = 0;
+
+    // Loop over process table looking for process to run.
+    acquire(&ptable.lock);
+    for(p = ptable.proc; p < &ptable.proc[NPROC]; p++)
+      {
+      //cprintf("%d\n", NPROC);
+	
+	 
+	 //cprintf("first (#0): %d\n", first);
+	if(p->state != RUNNABLE)
+	  {
+	    checks++;
+	    cprintf("%d: !runnable\n", checks);
+	    continue;
+	  }    
+      
+	    //cprintf("first (#1): %d\n", first);
+      if(first)
+      {
+	    //cprintf("first (#2): %d\n", first);
+      	minPass = p->pass;
+	    tempP = p; // This is the front runner
+	    first = 0;	
+      }
+      
+	// Check and store smallest pass val
+	if(p->pass < minPass || first)
+	  {
+	    //cprintf("first (#3): %d\n", first);
+	    minPass = p->pass;
+	    tempP = p; // This is the front runner
+	    first = 0;	
+	  }
+ 	  	 
+	// Keep an eye on the highest pass val (for overflow)
+	if(p->pass > maxPass)
+	  {
+	    maxPass = p->pass;
+	  }
+ 	  	
+ 	/*  	 
+	// 64 checks
+	if(checks < NPROC)
+	  continue; // p++
+	  //
+	  cprintf("%s\n", p->name);
+	} // End inner for
+	
+	if(checks == 64)
+	{
+      	release(&ptable.lock);
+		continue;
+	}
+	else if (checks > 64)
+		cprintf("more than 64 checks");		
+	
+	// Deal with overflow concerns
+	if(maxPass > CONSERVATIVE_CEIL)
+	  {
+	    lowerpassval(minPass);
+	  }
+      
+	// Switch to chosen process (after checking them all once).  
+	// It is the process's job to release ptable.lock and then 
+	// reacquire it before jumping back to us.
+	cprintf("%s\n", tempP->name);
+	proc = tempP;
+	int newPass = proc->pass + proc->stride; // Update before running 
+	proc->pass = newPass;//proc->pass + proc->stride; // Update before running
+	proc->n_schedule++; // Increment
+	switchuvm(tempP);
+	proc->state = RUNNING;
+	swtch(&cpu->scheduler, proc->context);
+	switchkvm();
+
+	// Process is done running for now.
+	// It should have changed its p->state before coming back.
+      proc = 0;
+      //checks = 0; // Reset check counter
+      first = 1; // Start over at the beginning of the ptable
+      release(&ptable.lock);      
+    }
+}
+*/
+
+
+/*///////////////////////
+
+int getMinPass()
+{
+  int minPass = 0;
+  struct proc *p;
+  
+  for(p = ptable.proc; p < &ptable.proc[NPROC]; p++)
+    {
+      if (minPass < p->pass && p->state != UNUSED)
+	      minPass = p->pass;
+    }
+  return minPass;
+}
+
+
+//run the process with the lowest pass value////////////////////
+void scheduler(void)
+{
+  struct proc *p;
+
+  for(;;){
+    // Enable interrupts on this processor.
+    sti();
+
+    // Loop over process table looking for process to run.
+    acquire(&ptable.lock);
+    for(p = ptable.proc; p < &ptable.proc[NPROC]; p++){
+      if(p->state != RUNNABLE)
+        continue;
+	
+	if(proc->state != RUNNABLE)
+        continue;
+
+      // Switch to chosen process.  It is the process's job
+      // to release ptable.lock and then reacquire it
+      // before jumping back to us.
+      //chose the process with the lowest pass value
+
+      if(p->pass <= getMinPass())
+	{
+	  proc = p;
+	  switchuvm(p);
+	  p->state = RUNNING;
+	  proc->pass = p->pass + p->stride;	  
+	  proc->n_schedule++;
+	  
+	  swtch(&cpu->scheduler, proc->context);
+	  switchkvm();
+
+	  // Process is done running for now.
+	  // It should have changed its p->state before coming back.
+	  
+	  proc = 0;
+	}
+    }
+    release(&ptable.lock);
+
+  }
+}
+*/
+

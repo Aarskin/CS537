@@ -15,7 +15,7 @@ extern struct {
 
 int sys_getpinfo(void)
 {
-  struct pstat* pstatA;
+  struct pstat** pstatA;
 
   if(argptr(1, (char**)&pstatA, sizeof(struct pstat)) < 0)
   {
@@ -28,6 +28,7 @@ int sys_getpinfo(void)
   acquire(&ptable.lock);
   
   struct proc* p;
+  struct pstat* temp;
   //make array of pstat's
   //struct pstat* pstatA = (struct pstat*) malloc((uint)(NPROC * sizeof(struct pstat)));
   
@@ -36,27 +37,34 @@ int sys_getpinfo(void)
   //printf("PID \t Stride \t tickets \t pass \t n_schedule \t name \n ");
   for/*(i = 0; i < NPROC; i++ )
      */(p = ptable.proc; p < &ptable.proc[NPROC]; p++)
-    { 
-    
-      p = &ptable.proc[i];
-	 
-      (pstatA + i)->pid = p->pid;
-      (pstatA + i)->stride = p->stride;
-      strncpy((pstatA+i)->name, p->name, 16);//(pstatA + i)->name = p->name;
-      (pstatA + i)->tickets = p->tickets;
-      (pstatA + i)->pass = p->pass;
-      (pstatA + i)->n_schedule = p->n_schedule;
-      if((p->state) != UNUSED  )
-	      (pstatA + i)->inuse = 1;
+    {
+      temp = *(pstatA+i);
+      
+      if((p->state) != UNUSED)
+      {
+	      temp->inuse = 1;
+      
+		 temp->pid = p->pid;
+		 temp->stride = p->stride;
+		 strncpy(temp->name, p->name, 16);//(pstatA + i)->name = p->name;
+		 temp->tickets = p->tickets;
+		 temp->pass = p->pass;
+		 temp->n_schedule = p->n_schedule;      	
+      }
+      
+      temp->inuse = 0;
+      
+      i++; // Increment index
+      
       
 		 //print out the stats to stdout
 	  if((p->state) != UNUSED)
 		 cprintf("PID %d; \t stride %d \t tickets %d; \t pass %d; \t n_schedule %d; \t name %s \n", p->pid, p->stride, p->tickets, p->pass, p->n_schedule, p->name );
-      i++; // Increment index
+		 
     }
   release(&ptable.lock);
-  return 0;
   //free(pstatA);
+  return 0;
 }
 
 int

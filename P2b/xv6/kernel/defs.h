@@ -103,7 +103,7 @@ struct proc* 	 getminproc(void);
 int			 getmaxpass(void);
 int             growproc(int);
 int             kill(int);
-int			 lowerpassval(void);
+int			 lowerpassval(int);
 void            pinit(void);
 void            procdump(void);
 void            scheduler(void) __attribute__((noreturn));

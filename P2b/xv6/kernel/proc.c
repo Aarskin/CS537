@@ -14,7 +14,7 @@ struct {
 static struct proc *initproc;
 
 int nextpid = 1;
-int curMin;
+int curMin = 50; // arbitrary
 int minPass = INT_MAX;
 int maxPass = INT_MIN;
 extern void forkret(void);
@@ -272,7 +272,7 @@ void
 scheduler(void)
 {
   struct proc *p;  
-  int croachingPass;
+  int encroachingPass;
 
   for(;;){
     // Enable interrupts on this processor.
@@ -280,34 +280,15 @@ scheduler(void)
 	
     // Loop over process table looking for process to run.
     acquire(&ptable.lock);
-    //for(p = ptable.proc; p < &ptable.proc[NPROC]; p++){
-      
-      /*
-      if(p->state != UNUSED) // Initialized
-      {
-      	if(firstProc)
-      	{
-      		curMin = p->pass; // Start with the first proc
-      		firstProc = 0;
-      	}
-      	else if(p->pass < curMin)
-      	{
-      		curMin = p->pass;
-      	}
-      }    
-      
-      if(p->state != RUNNABLE)
-        continue;
-        */
-        
+    
       p = getminproc();
-      croachingPass = getmaxpass();
+      encroachingPass = getmaxpass();
       
-      if(croachingPass > CONSERVATIVE_CEIL)
+      if(encroachingPass > LARGE_NUMBER)
       {
       	// Fix pass values
-      	cprintf("OMG MAX PASS VALUE TRIGGERED: %d\n", maxPass);
-      	lowerpassval();
+      	//cprintf("OMG MAX PASS VALUE TRIGGERED: %d\n", maxPass);
+      	lowerpassval(curMin);
       }
         
       // Switch to chosen process.  It is the process's job
@@ -317,7 +298,7 @@ scheduler(void)
       {
       	 // Update pass and n_schedule
       	 p->pass += p->stride;
-      	 p->n_schedule++;
+      	 p->n_schedule += 1;
       	 
 		 proc = p;
 		 switchuvm(p);
@@ -392,8 +373,9 @@ struct proc* getminproc()
 }
 
 // Must alredy hold ptable.lock
-int lowerpassval()
+int lowerpassval(int amt)
 {
+	cprintf("LOWERED");
 	struct proc *p;
 	
 	for(p = ptable.proc; p < &ptable.proc[NPROC]; p++)
@@ -401,7 +383,7 @@ int lowerpassval()
 		if(p->state == UNUSED)
 			continue;
 			
-		p->pass = 0;
+		p->pass -= amt; // Reset
 	}
 	
 	return 0;
@@ -494,7 +476,10 @@ wakeup1(void *chan)
 
   for(p = ptable.proc; p < &ptable.proc[NPROC]; p++)
     if(p->state == SLEEPING && p->chan == chan)
+    {
+      p->pass = curMin;
       p->state = RUNNABLE;
+    }
 }
 
 // Wake up all processes sleeping on chan.
