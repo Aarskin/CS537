@@ -1,3 +1,12 @@
+Name:
+CSL-ID:
+Name: Matthew Wiemer
+CSL-ID: wiemer
+(Leave the second name and ID blank if working alone)
+(Do NOT suffix your CSL IDs with @cs.wisc.edu, the ID alone is sufficient)
+
+Implementation Details: 
+
 xv6 is a re-implementation of Dennis Ritchie's and Ken Thompson's Unix
 Version 6 (v6).  xv6 loosely follows the structure and style of v6,
 but is implemented for a modern x86-based multiprocessor using ANSI C.

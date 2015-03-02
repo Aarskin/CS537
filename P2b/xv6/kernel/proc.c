@@ -42,7 +42,7 @@ allocproc(void)
   for(p = ptable.proc; p < &ptable.proc[NPROC]; p++)
     if(p->state == UNUSED)
     {
-      lowerpassval(minPass);
+      //lowerpassval();
       
       goto found;
     }
@@ -272,6 +272,7 @@ void
 scheduler(void)
 {
   struct proc *p;  
+  int croachingPass;
 
   for(;;){
     // Enable interrupts on this processor.
@@ -300,6 +301,14 @@ scheduler(void)
         */
         
       p = getminproc();
+      croachingPass = getmaxpass();
+      
+      if(croachingPass > CONSERVATIVE_CEIL)
+      {
+      	// Fix pass values
+      	cprintf("OMG MAX PASS VALUE TRIGGERED: %d\n", maxPass);
+      	lowerpassval();
+      }
         
       // Switch to chosen process.  It is the process's job
       // to release ptable.lock and then reacquire it
@@ -324,6 +333,31 @@ scheduler(void)
     release(&ptable.lock);
 
   }
+}
+
+int getmaxpass()
+{
+	struct proc* p; // for iteration
+	int firstProc = 1;
+	int maxPass;
+	
+	for(p = ptable.proc; p < &ptable.proc[NPROC]; p++)
+	{
+		if(p->state != UNUSED)
+		{
+			if(firstProc)
+			{
+				maxPass = p->pass; // Initialize
+				firstProc = 0;
+			}
+			else if(p->pass > maxPass)
+			{
+				maxPass = p->pass;
+			}
+		}
+	}
+	
+	return maxPass;
 }
 
 struct proc* getminproc()
@@ -358,19 +392,16 @@ struct proc* getminproc()
 }
 
 // Must alredy hold ptable.lock
-int lowerpassval(int amt)
+int lowerpassval()
 {
 	struct proc *p;
-	
-	if(!holding(&ptable.lock))
-		panic("lower ptable.lock");
 	
 	for(p = ptable.proc; p < &ptable.proc[NPROC]; p++)
 	{
 		if(p->state == UNUSED)
 			continue;
 			
-		p->pass = p->pass - amt; // Lower every process by at most minPass
+		p->pass = 0;
 	}
 	
 	return 0;
