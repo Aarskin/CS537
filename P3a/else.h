@@ -1,3 +1,7 @@
-static int specialSize;
-static bool initialized = false;
-static struct FreeHeader* head;
+#ifndef ELSE_H
+#define ELSE_H
+// Necessary?
+//int specialSize;
+//struct FreeHeader* head;
+
+#endif//ELSE_H
