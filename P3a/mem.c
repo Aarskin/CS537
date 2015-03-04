@@ -8,21 +8,27 @@
 
 int specialSize = -1;		// Slab size
 bool initialized = false;	// Flag for Mem_Init
-struct FreeHeader* head;		// Freelist HEAD
+
+int slabSegSize;			// Size of slab segment in bytes
+int nextSegSize;			// Size of next segment in bytes
+struct FreeHeader* slabHead;	// Slab allocator freelist HEAD
+struct FreeHeader* nextHead;	// Nextfit allocator freelist HEAD
 //void* firstFree;			// First truly free & mapped byte
 
 void* Mem_Init(int sizeOfRegion, int slabSize)
 {
 	void* addr = NULL;	// Starting address of newly mapped mem
-	int trueSize = sizeOfRegion + sizeof(struct FreeHeader); // Count meta
+	//int trueSize = sizeOfRegion + sizeof(struct FreeHeader); // Count meta
 	
 	if(!initialized) // Only do this stuff once
 	{
-		// Spec'd
+		// sizeOfRegion will be multiple of four (from spec)
+		int slabSegSize = sizeOfRegion/4; // 1/4 of the space
+		int nextSegSize = sizeOfRegion - slabSegSize; // 3/4 of the space
 		specialSize = slabSize;
 
 		// The allocation
-		addr = mmap(NULL, trueSize, PROT_READ | PROT_WRITE, 
+		addr = mmap(NULL, sizeOfRegion, PROT_READ | PROT_WRITE, 
 						MAP_ANON | MAP_PRIVATE, -1, 0);
 			
 		assert(addr != MAP_FAILED); // Bail on error (for now?)
@@ -32,20 +38,27 @@ void* Mem_Init(int sizeOfRegion, int slabSize)
 		//printf("TRUEHEAD: %p\n", addr);
 		//printf("SIZE: %lu\n", sizeof(struct FreeHeader));
 		
-		// Use the same space to track freelist
-		head			= (struct FreeHeader*)addr;
-		head->length	= sizeOfRegion; // Available to process
-		head->next	= NULL;
+		// Slab segment metadata
+		slabHead			= (struct FreeHeader*)addr;
+		slabHead->length	= slabSegSize - sizeof(struct FreeHeader);
+		slabHead->next		= NULL; // Nothing in here yet
 		
-		addr += sizeof(struct FreeHeader);
+		// Next fit segment metadata
+		nextHead			= (struct FreeHeader*)addr + slabSegSize;
+		nextHead->length	= nextSegSize - sizeof(struct FreeHeader);
+		nextHead->next		= NULL; // Nothing in here yet		
+		
+		//addr += sizeof(struct FreeHeader);
 	}
 	
-	return addr; // Null pointer when initialized already!
+	return addr; // Null pointer if initialized already!
 }
 
 void* Mem_Alloc(int size)
 {
 	struct AllocatedHeader* allocd = NULL;
+	
+	/*
 	int trueSize = size + sizeof(struct AllocatedHeader); // Account for meta
 	
 	if(head->length < trueSize)
@@ -80,8 +93,19 @@ void* Mem_Alloc(int size)
 		printf("HOW?");
 		exit(0);
 	}
+	*/
 	
 	return allocd; // Success!
+}
+
+int Slab_Alloc()
+{
+	return 0;
+}
+
+int Next_Alloc()
+{
+	return 0;
 }
 
 int Mem_Free(void *ptr)
