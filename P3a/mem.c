@@ -13,7 +13,6 @@ int slabSegSize;			// Size of slab segment in bytes
 int nextSegSize;			// Size of next segment in bytes
 struct FreeHeader* slabHead;	// Slab allocator freelist HEAD
 struct FreeHeader* nextHead;	// Nextfit allocator freelist HEAD
-//void* firstFree;			// First truly free & mapped byte
 
 void* Mem_Init(int sizeOfRegion, int slabSize)
 {
@@ -58,6 +57,13 @@ void* Mem_Alloc(int size)
 {
 	struct AllocatedHeader* allocd = NULL;
 	
+	allocd = SlabAlloc(size); // Try slab allocator
+	
+	if(allocd == NULL) // Slab allocation failed
+		allocd = NextAlloc(size); // Try next fit allocator	
+	
+	return allocd; // If next fit also failed just propagate that NULL
+		
 	/*
 	int trueSize = size + sizeof(struct AllocatedHeader); // Account for meta
 	
@@ -94,18 +100,50 @@ void* Mem_Alloc(int size)
 		exit(0);
 	}
 	*/
+}
+
+struct AllocatedHeader* SlabAlloc(int size)
+{
+	if(slabHead->length < size)
+	{
+		return allocd; // NO SPACE 4 U
+	}
+	else if(head->length >= size)
+	{
 	
-	return allocd; // Success!
+		/*
+		// Initialize new AllocatedHeader
+		allocd = (struct AllocatedHeader*)(((void*)head)+sizeof(struct FreeHeader));
+		
+		// Populate the header
+		allocd->length = size; // Available to process
+		allocd->magic	= (void*) MAGIC; // The non-SHA-SHA
+		
+		// Update freelist
+		head->length -= trueSize; // Process space + Meta info
+		
+		if(head->length != trueSize) // Unless this request fits perfectly...
+		{
+			struct FreeHeader* newFreeBlock = (struct FreeHeader*)
+				(((void*)head) + sizeof(struct FreeHeader) + trueSize);
+			
+			newFreeBlock->length = size; // Available to process
+			newFreeBlock->next   = NULL; // NULL
+		}
+		
+		allocd += sizeof(struct AllocatedHeader); // Advance ptr to free space
+		*/
+	}
+	else
+	{
+		printf("HOW?");
+		exit(0);
+	}
 }
 
-int Slab_Alloc()
+struct AllocatedHeader* NextAlloc()
 {
-	return 0;
-}
-
-int Next_Alloc()
-{
-	return 0;
+	return NULL;
 }
 
 int Mem_Free(void *ptr)
@@ -117,35 +155,6 @@ void Mem_Dump()
 {	
 	Dump(slabHead, "SLAB");
 	Dump(nextHead, "NEXT FIT");
-	
-	/*
-	int i = 1;
-	struct FreeHeader* slabTmp = slabHead;
-	struct FreeHeader* nextTmp = nextHead;
-	
-	void* firstByte = ((void*)head)+sizeof(struct FreeHeader);
-	
-	printf("HEAD\n");
-	printf("--------------------------\n");
-	printf("LENGTH: %d\n", tmp->length);
-	printf("FIRST BYTE: %p\n", firstByte);
-	printf("NEXT HEADER: %p\n", tmp->next);
-	printf("\n");
-	
-	while(tmp->next != NULL)
-	{
-		tmp = (struct FreeHeader*)tmp->next;
-		
-		printf("Space %d\n", i);
-		printf("--------------------------\n");
-		printf("LENGTH: %d\n", tmp->length);
-		printf("FIRST BYTE: %p\n", firstByte);
-		printf("NEXT HEADER: %p\n", tmp->next);
-		printf("\n");
-		
-		i++;
-	}
-	*/
 
 	return;
 }
