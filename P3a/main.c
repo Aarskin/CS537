@@ -7,9 +7,9 @@
 
 int main(int argc, char* argv[])
 {
-	printf("Hello World!\n");
+	//printf("Hello World!\n");
 	
-	void* addr = Mem_Init(15, 8);
+	void* addr = Mem_Init(256, 16);
 	assert(addr != NULL);
 	Mem_Dump();
 	

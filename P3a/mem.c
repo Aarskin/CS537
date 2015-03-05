@@ -3,8 +3,8 @@
 #include <stdbool.h>
 #include <stdio.h>
 #include <assert.h>
-#include "else.h"
 #include "mymem.h"
+#include "else.h"
 
 int specialSize = -1;		// Slab size
 bool initialized = false;	// Flag for Mem_Init
@@ -114,9 +114,14 @@ int Mem_Free(void *ptr)
 }
 
 void Mem_Dump()
-{
+{	
+	Dump(slabHead, "SLAB");
+	Dump(nextHead, "NEXT FIT");
+	
+	/*
 	int i = 1;
-	struct FreeHeader* tmp = head;
+	struct FreeHeader* slabTmp = slabHead;
+	struct FreeHeader* nextTmp = nextHead;
 	
 	void* firstByte = ((void*)head)+sizeof(struct FreeHeader);
 	
@@ -140,6 +145,40 @@ void Mem_Dump()
 		
 		i++;
 	}
+	*/
 
 	return;
+}
+
+// Dump a segment freelist given its head ptr
+int Dump(struct FreeHeader* head, char* name)
+{
+	int i = 1;
+	struct FreeHeader* tmp = head;
+	
+	// Output the *actually* free space
+	void* firstByte = ((void*)head)+sizeof(struct FreeHeader);
+	
+	printf("%s HEAD\n", name);
+	printf("--------------------------\n");
+	printf("LENGTH: %d\n", tmp->length);
+	printf("FIRST BYTE: %p\n", firstByte);
+	printf("NEXT HEADER: %p\n", tmp->next);
+	printf("\n");
+	
+	while(tmp->next != NULL)
+	{
+		tmp = (struct FreeHeader*)tmp->next;
+		
+		printf("Space %d\n", i);
+		printf("--------------------------\n");
+		printf("LENGTH: %d\n", tmp->length);
+		printf("FIRST BYTE: %p\n", firstByte);
+		printf("NEXT HEADER: %p\n", tmp->next);
+		printf("\n");
+		
+		i++;
+	}
+	
+	return 0;
 }
