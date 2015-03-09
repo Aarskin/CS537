@@ -154,7 +154,7 @@ struct AllocatedHeader* NextAlloc(int size)
 		if(check->length >= trueSize) 
 		{
 			// Populate newly allocated meta (at the start of the block)
-			allocd		= ((void*)check) + sizeof(check);
+			allocd		= ((void*)check) + sizeof(*check);
 			allocd->length = size;
 			allocd->magic	= (void*)MAGIC;
 		
@@ -174,7 +174,7 @@ struct AllocatedHeader* NextAlloc(int size)
 				newBlock->length = remainingLength;
 				
 				// Inserting newBlock into the freelist chain. If check was 
-				// the last header, newBlock will be the new last header. 
+				// the last header, newBlock will be the new last header. c
 				// Otherwise, newBlock will point wherever check did.
 				newBlock->next = check->next;			
 			}
@@ -183,11 +183,11 @@ struct AllocatedHeader* NextAlloc(int size)
 			check->length = 0; // This block is empty now
 			
 			if(remainingLength >= 0)
-				check->next = nextFreeByte;
+				check->next = nextFreeByte; // nextFreeByte == newBlock
 			else
 				check->next = NULL;
 			
-			break; // Stop looping, we are done.
+			break; // Stop looping, there was room in check.
 		}
 		else check = check->next; // Move to the next FreeHeader	
 	} while (check != NULL); 	 // Until we reach the end of the freelist
@@ -212,6 +212,7 @@ int Mem_Free(void *ptr)
 		assert(allocd->magic == (void*)MAGIC); // A real AllocatedHeader		
 		int freedSpace = allocd->length + sizeof(*allocd);
 		
+		// Add this chunk of memory back into the freelist chain
 		int check = NextCoalesce(allocd, freedSpace);
 		assert(check == 0);
 	}
@@ -219,16 +220,20 @@ int Mem_Free(void *ptr)
 	return 0;
 }
 
+// freeBytes already accounts for the AllocatedHeader being freed
 int NextCoalesce(void* ptr, int freeBytes)
 {
 	struct FreeHeader* tmp = nextHead; // Start at the beginning
-	struct FreeHeader* lastBefore; // Last FreeHeader* before new mem
-	struct FreeHeader* firstAfter; // First FreeHeader* after new mem
+	struct FreeHeader* lastBefore = NULL; // Last FreeHeader* before new mem
+	struct FreeHeader* firstAfter = NULL; // First FreeHeader* after new mem
 	void* postTmp; // The addr immediately after the current FreeHeader space
 	bool passed = false; // Flag for passing the freed space in memory
 	
 	void* startFree = ptr; // Starting address of newly freed space
 	void* postFree = ptr + freeBytes; // First still occupied address
+	
+	struct FreeHeader* newFree = NULL; // Used when non-contiguous
+	struct FreeHeader* fitCheck = NULL; // Used in the perfect fit case
 	
 	while(tmp != NULL) // Walk along the freelist
 	{
@@ -236,27 +241,90 @@ int NextCoalesce(void* ptr, int freeBytes)
 		
 		if(postTmp == startFree) // Contiguous! (tmp before ptr)
 		{
-			return 0;
+			// Update tmp's length by adding the freeBytes that are now
+			// appended to it
+			tmp->length += freeBytes;
+			
+			// Check if the newly freed space is ALSO continguous with the
+			// FreeHeader after it (perfect fit case)
+			fitCheck = tmp->next;
+			
+			if(((void*)fitCheck) == postFree)
+			{
+				// Add that free space to this one
+				tmp->length += fitCheck->length + sizeof(*fitCheck);
+				tmp->next = fitCheck->next; // Update linkage
+			}			
+			
+			return 0; // We're done. Can't possibly be more coalesced
 		}
 		
 		if(((void*)tmp) == postFree) // Contiguous! (ptr before tmp)
 		{
+			newFree = (struct FreeHeader*)ptr; // Replace old AllocatedHeader
+			newFree->length	= freeBytes + sizeof(*tmp) + tmp->length;
+			newFree->next		= tmp->next;
+			
+			// No need to perfect fit check here, because if the previous 
+			// FreeHeader was contiguous, it would have triggered if #1 on
+			// the last pass of the loop and this would never have run.
 			return 0;
 		}
 		
-		if(((void*)tmp) > postFree && !passed) // First FreeHeader after space
+		// First FreeHeader after newly freed space. It is not contiguous with
+		// the freed space (otherwise an above if statement would run)
+		if(((void*)tmp) > postFree && !passed) 
 		{
 			firstAfter = tmp;
 			passed = true;
+			
+			// On the last pass of the loop, we tracked the FreeHeader that
+			// was non-contiguously before the newly freed space. Now that we
+			// have it's corrolary, there's no need to look at the other
+			// FreeHeaders, just link these two up with the newly freed space
+			break;
 		}
 		
-		if(!passed) // Still before the freed space in memory
+		if(!passed) // Still before the newly freed space in memory
 		{
 			lastBefore = tmp;		
 		}
 		
-		// Increment to next FreeHeader
+		// Increment to the next FreeHeader
 		tmp = tmp->next;
+	}
+	
+	newFree = (struct FreeHeader*)ptr; // Replace old AllocatedHeader
+	
+	// Dropping out of the loop implies checking every FreeHeader for 
+	// contiguity and finding none. This could happen when:
+	// A) We found the true lastBefore and firstAfter FreeHeaders, neither were
+	//		contiguous, so we need to link the newly freed space to both
+	if(lastBefore != NULL && firstAfter != NULL)
+	{
+		// Link old to new
+		lastBefore->next	= newFree; // Length is unchanged
+		
+		// Link new to old
+		newFree->length	= freeBytes;
+		newFree->next		= firstAfter;
+	}
+	// B) The newly freed space is after the last currently available free 
+	// 		space (non-contiguously, otherwise if #1 would have run)
+	else if(firstAfter == NULL)
+	{
+		// Link old to new
+		lastBefore->next	= newFree; // Length is unchanged
+		
+		// Initialize new space
+		newFree->length	= freeBytes; 
+		newFree->next		= NULL; // New end of freelist
+	}
+	else
+	{
+		// Shouldn't happen
+		fprintf(stderr, "Coalesce failed");
+		return -1;
 	}
 	
 	return 0;
@@ -274,7 +342,7 @@ bool ValidPointer(void* ptr)
 
 void Mem_Dump()
 {	
-	Dump(slabHead, "SLAB");
+	//Dump(slabHead, "SLAB");
 	Dump(nextHead, "NEXT FIT");
 
 	return;
