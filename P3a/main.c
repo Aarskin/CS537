@@ -5,6 +5,8 @@
 #include "mymem.h"
 #include "tests.h"
 
+void* allocd;
+
 int main(int argc, char* argv[])
 {
 	int init = 256;
@@ -14,33 +16,37 @@ int main(int argc, char* argv[])
 	
 	// Test
 	Initialize(init, slabSize);
-	Mem_Dump();
-	SingleAlloc();
-	Mem_Dump();
+	//Mem_Dump();
+	AllocAll();
+	//Mem_Dump();
+	FreeAll();
 	
 	// We win
-	announce("ALL TESTS PASSED");	
+	printf("ALL TESTS PASSED\n\n");	
 	exit(0);
 }
 
 void Initialize(int init, int slabSize)
 {
-	announce("Initialize...");
+	printf("Initialize...\n");
 	void* addr = Mem_Init(init, slabSize);
 	assert(addr != NULL);
-	printf("Success!\n");
+	printf("Success!\n\n");
 }
 
-void SingleAlloc()
+void AllocAll()
 {
-	announce("Single Allocation...");	
-	void* allocd = Mem_Alloc(160);
+	printf("Allocating entire space...\n");	
+	allocd = Mem_Alloc(160);
 	assert(allocd != NULL);
-	printf("Sucess!\n");
+	printf("Success!\n\n");
 }
 
-void announce(char* announcement)
-{
-	printf("\n%s\n\n", announcement);
+void FreeAll()
+{	
+	printf("Freeing entire space...\n");	
+	int ret = Mem_Free(allocd);
+	assert(ret == 0);
+	printf("Success!\n\n");
 }
 

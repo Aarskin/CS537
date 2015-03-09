@@ -5,8 +5,10 @@
 //struct FreeHeader* head;
 
 int Dump(struct FreeHeader*, char* name);
+int Coalesce(void* ptr, int freeBytes);
+bool ValidPointer(void* ptr);
 struct AllocatedHeader* SlabAlloc(int size);
 struct AllocatedHeader* NextAlloc(int size);
-//void announce(char* annoucement);
+
 
 #endif//ELSE_H

@@ -26,8 +26,8 @@ void* Mem_Init(int sizeOfRegion, int slabSize)
 		while(sizeOfRegion % 16 != 0) // 16 bit alignment
 			sizeOfRegion++;
 		
-		int slabSegSize = sizeOfRegion/4; // 1/4 of the space
-		int nextSegSize = sizeOfRegion - slabSegSize; // 3/4 of the space
+		slabSegSize = sizeOfRegion/4; // 1/4 of the space
+		nextSegSize = sizeOfRegion - slabSegSize; // 3/4 of the space
 		specialSize = slabSize;
 
 		// The allocation
@@ -89,6 +89,9 @@ void* Mem_Alloc(int size)
 	if(allocd == NULL)
 		allocd = NextAlloc(size);		
 	
+	if(allocd != NULL) // Move allocd to the actually free byte in memory
+		allocd = ((void*)allocd) + sizeof (*allocd);
+		
 	return allocd; // NULL if both fail		
 }
 
@@ -195,14 +198,45 @@ struct AllocatedHeader* NextAlloc(int size)
 int Mem_Free(void *ptr)
 {
 	// Validate ptr
-	printf("%p\n", ptr);
+	if(ptr == NULL)
+		return 0; // Do nothing, not even err
+	else if(!ValidPointer(ptr))
+	{
+		fprintf(stderr, "SEGFAULT\n");
+		return -1;
+	}
+	else // Valid ptr
+	{
+		// This *should be* the ptr's AllocatedHeader
+		struct AllocatedHeader* allocd = ptr - sizeof(struct AllocatedHeader);		
+		assert(allocd->magic == (void*)MAGIC); // Ensure we have an AllocatedHeader		
+		int freedSpace = allocd->length + sizeof(*allocd);
+		
+		int check = Coalesce(allocd, freedSpace);
+		assert(check == 0);
+	}
 	
 	return 0;
 }
 
+int Coalesce(void* ptr, int freeBytes)
+{
+	return 0;
+}
+
+bool ValidPointer(void* ptr)
+{
+	void* mmapEnd = ((void*)slabHead) + slabSegSize + nextSegSize;
+	
+	if(ptr < ((void*)slabHead) || ptr >= mmapEnd)
+		return false;
+	else
+		return true;
+}
+
 void Mem_Dump()
 {	
-	//Dump(slabHead, "SLAB");
+	Dump(slabHead, "SLAB");
 	Dump(nextHead, "NEXT FIT");
 
 	return;
