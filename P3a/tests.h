@@ -6,6 +6,6 @@
 void Initialize(int, int);
 void AllocAll();
 void FreeAll();
-void NextAllocAndFree();
+void NextAllocAndFree(int, int);
 
 #endif //TESTS_H
