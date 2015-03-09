@@ -12,7 +12,8 @@ int main(int argc, char* argv[])
 	
 	printf("\nInit: %d | Slab Size: %d\n\n", init, slabSize);
 	
-	Initialize();
+	Initialize(init, slabSize);
+	SingleAlloc();
 	
 	//announce("MEMORY INITIALIZED");
 	printf("\nMEMORY INITIALIZED\n\n");
@@ -28,11 +29,24 @@ int main(int argc, char* argv[])
 	exit(0);
 }
 
-void Initialize()
+void Initialize(int init, int slabSize)
 {
-	announce("ENTER Initialize");
+	announce("Initialize...");
 	void* addr = Mem_Init(init, slabSize);
 	assert(addr != NULL);
-	announce("
+	printf("Success!\n");
+}
+
+void SingleAlloc()
+{
+	announce("Single Allocation...");	
+	void* allocd = Mem_Alloc(176);
+	assert(allocd != NULL);
+	printf("Sucess!\n");
+}
+
+void announce(char* announcement)
+{
+	printf("\n%s\n", announcement);
 }
 

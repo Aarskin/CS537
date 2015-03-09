@@ -156,8 +156,7 @@ struct AllocatedHeader* NextAlloc(int size)
 		
 			// Create new FreeHeader 
 			struct FreeHeader* newBlock = nextFreeByte;
-			newBlock->length = check->length - sizeof(*allocd) 
-								- size - sizeof(*newBlock);
+			newBlock->length = remainingLength;
 								
 			// Inserting newBlock into the freelist chain. If check was the
 			// last header, newBlock will be the new last header. Otherwise,
