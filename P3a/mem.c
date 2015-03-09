@@ -197,28 +197,59 @@ struct AllocatedHeader* NextAlloc(int size)
 
 int Mem_Free(void *ptr)
 {
-	// Validate ptr
+	seg_t seg = PointerCheck(ptr);
+	
 	if(ptr == NULL)
 		return 0; // Do nothing, not even err
-	else if(!ValidPointer(ptr))
+	else if(seg == FAULT)
 	{
 		fprintf(stderr, "SEGFAULT\n");
 		return -1;
 	}
-	else // Valid ptr
+	else if(seg == NEXT) // Valid nextSeg pointer
 	{
 		// This *should be* the ptr's AllocatedHeader
 		struct AllocatedHeader* allocd = ptr - sizeof(struct AllocatedHeader);		
 		assert(allocd->magic == (void*)MAGIC); // An active AllocatedHeader
-		allocd->magic = 0;	// Not anymore	
+		allocd->magic = 0; // Not anymore	
 		int freedSpace = allocd->length + sizeof(*allocd);
 		
 		// Add this chunk of memory back into the freelist chain
 		int check = NextCoalesce(allocd, freedSpace);
 		assert(check == 0);
 	}
+	else if(seg == SLAB) // Valid slabSeg pointer
+	{
+		
+	}
+	else
+	{
+		printf("Unexpected Pointer: %p\n", ptr);
+		return -1;
+	}
 	
 	return 0;
+}
+
+seg_t PointerCheck(void* ptr)
+{
+	void* sHead	= ((void*)slabHead);
+	void* sEnd	= sHead + slabSegSize;
+	void* nHead	= ((void*)nextHead);
+	void* nEnd	= nHead + nextSegSize;
+	
+	int ret = FAULT;
+	
+	if(ptr < sHead || ptr >= nEnd)
+		ret = FAULT;
+	else if (ptr >= sHead && ptr < sEnd)
+		ret = SLAB;
+	else if (ptr >= nHead && ptr < nEnd)
+		ret = NEXT;
+	else
+		assert(false); // Shouldn't be possible
+		
+	return ret;
 }
 
 // freeBytes already accounts for the AllocatedHeader being freed
@@ -329,16 +360,6 @@ int NextCoalesce(void* ptr, int freeBytes)
 	}
 	
 	return 0;
-}
-
-bool ValidPointer(void* ptr)
-{
-	void* mmapEnd = ((void*)slabHead) + slabSegSize + nextSegSize;
-	
-	if(ptr < ((void*)slabHead) || ptr >= mmapEnd)
-		return false;
-	else
-		return true;
 }
 
 void Mem_Dump()
