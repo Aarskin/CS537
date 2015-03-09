@@ -13,6 +13,8 @@ int slabSegSize;			// Size of slab segment in bytes
 int nextSegSize;			// Size of next segment in bytes
 struct FreeHeader* slabHead;	// Slab allocator freelist HEAD
 struct FreeHeader* nextHead;	// Nextfit allocator freelist HEAD
+void* slabSegFault;			// Address of the byte after the slab segment
+void* nextSegFault;			// Address of the byte after the next segment
 
 void* Mem_Init(int sizeOfRegion, int slabSize)
 {
@@ -21,7 +23,7 @@ void* Mem_Init(int sizeOfRegion, int slabSize)
 	
 	if(!initialized) // Only do this stuff once
 	{
-		while(sizeOfRegion % 16 != 0) // 16 bit aligned
+		while(sizeOfRegion % 16 != 0) // 16 bit alignment
 			sizeOfRegion++;
 		
 		int slabSegSize = sizeOfRegion/4; // 1/4 of the space
@@ -56,13 +58,15 @@ void* Mem_Init(int sizeOfRegion, int slabSize)
 			
 			tmp = (struct FreeHeader*)nextSlab;	
 		}
+		
+		slabSegFault = ((void*)slabHead) + slabSegSize;
 				
 		// Next fit segment init
 		nextHead			= (struct FreeHeader*)(addr + slabSegSize);
 		nextHead->length	= nextSegSize - sizeof(struct FreeHeader);
-		nextHead->next		= NULL; // Nothing in here yet		
+		nextHead->next		= NULL;
 		
-		//addr += sizeof(struct FreeHeader);
+		nextSegFault = ((void*)nextHead) + nextSegSize;
 	}
 	
 	return addr; // Null pointer if initialized already!
@@ -135,49 +139,64 @@ struct AllocatedHeader* SlabAlloc(int size)
 	}
 }
 
+// Size will be a multiple of 16
 struct AllocatedHeader* NextAlloc(int size)
 {
 	struct AllocatedHeader* allocd = NULL;
-	struct FreeHeader* check = nextHead;
+	struct FreeHeader* check = nextHead; // Temp, for iteration
+	int trueSize = size + sizeof(struct AllocatedHeader);
 	
 	do
-	{
-		if(check->length >= size) // There is room in this block
+	{	// There is room in this block (even when considering bookkeeping)
+		if(check->length >= trueSize) 
 		{
-			// Populate newly allocated meta
+			// Populate newly allocated meta (at the start of the block)
 			allocd		= ((void*)check) + sizeof(check);
 			allocd->length = size;
 			allocd->magic	= (void*)MAGIC;
 		
 			// Calculating...
 			void* nextFreeByte = ((void*)allocd) + sizeof(*allocd) + size;
-			int remainingLength = check->length - sizeof(*allocd) - size
-									- size - sizeof(struct FreeHeader);
+			int remainingLength = check->length - sizeof(*allocd) - trueSize;
 		
-			// Create new FreeHeader 
-			struct FreeHeader* newBlock = nextFreeByte;
-			newBlock->length = remainingLength;
-								
-			// Inserting newBlock into the freelist chain. If check was the
-			// last header, newBlock will be the new last header. Otherwise,
-			// newBlock will point wherever check did.
-			newBlock->next = check->next;
+			// Checks if there are at least 16 bytes available for the
+			// storage of another FreeHeader. This header could potentially
+			// have 0 length (redundancy/performance hit)
+			//if(nextFreeByte + sizeof(FreeHeader) <= nextSegFault)
+			
+			if(remainingLength >= 0)
+			{
+				// Create new FreeHeader 
+				struct FreeHeader* newBlock = nextFreeByte;
+				newBlock->length = remainingLength;
 				
-			// Update old meta information
-			check->length = 0; // This is empty now
-			check->next	= newBlock;
+				// Inserting newBlock into the freelist chain. If check was 
+				// the last header, newBlock will be the new last header. 
+				// Otherwise, newBlock will point wherever check did.
+				newBlock->next = check->next;			
+			}
+				
+			// Update outdated information
+			check->length = 0; // This block is empty now
+			
+			if(remainingLength >= 0)
+				check->next = nextFreeByte;
+			else
+				check->next = NULL;
+			
+			break; // Stop looping, we are done.
 		}
-		else
-		{
-		
-		}	
-	} while (check->next != NULL); // Until we reach the end of the freelist
+		else check = check->next; // Move to the next FreeHeader	
+	} while (check != NULL); 	 // Until we reach the end of the freelist
 		
 	return allocd; // NULL on failure
 }
 
 int Mem_Free(void *ptr)
 {
+	// Validate ptr
+	printf("%p\n", ptr);
+	
 	return 0;
 }
 

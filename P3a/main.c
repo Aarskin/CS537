@@ -12,20 +12,14 @@ int main(int argc, char* argv[])
 	
 	printf("\nInit: %d | Slab Size: %d\n\n", init, slabSize);
 	
+	// Test
 	Initialize(init, slabSize);
+	Mem_Dump();
 	SingleAlloc();
-	
-	//announce("MEMORY INITIALIZED");
-	printf("\nMEMORY INITIALIZED\n\n");
-	Mem_Dump();
-		
-	void* allocd = Mem_Alloc(176);
-	assert(allocd != NULL);
-	
-	//announce("10 BYTES ALLOCATED!");
-	printf("\nMEMORY ALLOCATED\n\n");
 	Mem_Dump();
 	
+	// We win
+	announce("ALL TESTS PASSED");	
 	exit(0);
 }
 
@@ -40,13 +34,13 @@ void Initialize(int init, int slabSize)
 void SingleAlloc()
 {
 	announce("Single Allocation...");	
-	void* allocd = Mem_Alloc(176);
+	void* allocd = Mem_Alloc(160);
 	assert(allocd != NULL);
 	printf("Sucess!\n");
 }
 
 void announce(char* announcement)
 {
-	printf("\n%s\n", announcement);
+	printf("\n%s\n\n", announcement);
 }
 
