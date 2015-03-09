@@ -21,7 +21,9 @@ void* Mem_Init(int sizeOfRegion, int slabSize)
 	
 	if(!initialized) // Only do this stuff once
 	{
-		// sizeOfRegion will be multiple of four (from spec)
+		while(sizeOfRegion % 16 != 0) // 16 bit aligned
+			sizeOfRegion++;
+		
 		int slabSegSize = sizeOfRegion/4; // 1/4 of the space
 		int nextSegSize = sizeOfRegion - slabSegSize; // 3/4 of the space
 		specialSize = slabSize;
@@ -32,18 +34,31 @@ void* Mem_Init(int sizeOfRegion, int slabSize)
 			
 		assert(addr != MAP_FAILED); // Bail on error (for now?)
 		initialized = true;
+				
+		// Slab segment init
+		int headerSize = sizeof(struct FreeHeader);
+		slabHead = (struct FreeHeader*)addr; // addr returned by mmap
+		void* finalSlabStart = ((void*)slabHead) + slabSegSize - headerSize;
 		
-		//DEBUG
-		//printf("TRUEHEAD: %p\n", addr);
-		//printf("SIZE: %lu\n", sizeof(struct FreeHeader));
+		struct FreeHeader* tmp = slabHead; // i = 0
+		void* nextSlab;	
 		
-		// Slab segment metadata
-		slabHead			= (struct FreeHeader*)addr;
-		slabHead->length	= slabSegSize - sizeof(struct FreeHeader);
-		slabHead->next		= NULL; // Nothing in here yet
+		while((void*)tmp <= finalSlabStart)
+		{
+			nextSlab = ((void*)tmp)+slabSize; // Address of nextSlab
 		
-		// Next fit segment metadata
-		nextHead			= (struct FreeHeader*)addr + slabSegSize;
+			//tmp->length = slabSize; // Redundant (special size)
+			
+			if(nextSlab <= finalSlabStart)
+				tmp->next	= nextSlab; // Room for more
+			else
+				tmp->next = NULL; // This is the last slab
+			
+			tmp = (struct FreeHeader*)nextSlab;	
+		}
+				
+		// Next fit segment init
+		nextHead			= (struct FreeHeader*)(addr + slabSegSize);
 		nextHead->length	= nextSegSize - sizeof(struct FreeHeader);
 		nextHead->next		= NULL; // Nothing in here yet		
 		
@@ -55,62 +70,41 @@ void* Mem_Init(int sizeOfRegion, int slabSize)
 
 void* Mem_Alloc(int size)
 {
+	// Spin size up to a multiple of 16 (modulo thinking was hurting)
+	while(size % 16 != 0)
+		size++;
+
 	struct AllocatedHeader* allocd = NULL;
 	
-	allocd = SlabAlloc(size); // Try slab allocator
+	if(size == specialSize) // Try slab allocation
+		allocd = SlabAlloc(size);
 	
-	if(allocd == NULL) // Slab allocation failed
-		allocd = NextAlloc(size); // Try next fit allocator	
+	// If allocd is still NULL here, we either didn't try SlabAlloc,
+	// or it failed and we should try NextAlloc. If it's not NULL,
+	// assume SlabAlloc was tried and did work;.
+	if(allocd == NULL)
+		allocd = NextAlloc(size);		
 	
-	return allocd; // If next fit also failed just propagate that NULL
-		
-	/*
-	int trueSize = size + sizeof(struct AllocatedHeader); // Account for meta
-	
-	if(head->length < trueSize)
-	{
-		return allocd; // NO SPACE 4 U
-	}
-	else if(head->length >= trueSize)
-	{
-		// Initialize new AllocatedHeader
-		allocd = (struct AllocatedHeader*)(((void*)head)+sizeof(struct FreeHeader));
-		
-		// Populate the header
-		allocd->length = size; // Available to process
-		allocd->magic	= (void*) MAGIC; // The non-SHA-SHA
-		
-		// Update freelist
-		head->length -= trueSize; // Process space + Meta info
-		
-		if(head->length != trueSize) // Unless this request fits perfectly...
-		{
-			struct FreeHeader* newFreeBlock = (struct FreeHeader*)
-				(((void*)head) + sizeof(struct FreeHeader) + trueSize);
-			
-			newFreeBlock->length = size; // Available to process
-			newFreeBlock->next   = NULL; // NULL
-		}
-		
-		allocd += sizeof(struct AllocatedHeader); // Advance ptr to free space
-	}
-	else
-	{
-		printf("HOW?");
-		exit(0);
-	}
-	*/
+	return allocd; // NULL if both fail		
 }
 
 struct AllocatedHeader* SlabAlloc(int size)
 {
+	struct AllocatedHeader* allocd = NULL;
+	
 	if(slabHead->length < size)
 	{
 		return allocd; // NO SPACE 4 U
 	}
-	else if(head->length >= size)
+	else if(slabHead->length >= size)
 	{
-	
+		// Give the allocated header the byte just after the slabHead
+		allocd = (struct AllocatedHeader*)(((void*)slabHead)
+					+sizeof(struct FreeHeader));
+					
+		allocd->length = size;
+		
+		return 0; // REmove
 		/*
 		// Initialize new AllocatedHeader
 		allocd = (struct AllocatedHeader*)(((void*)head)+sizeof(struct FreeHeader));
@@ -141,9 +135,46 @@ struct AllocatedHeader* SlabAlloc(int size)
 	}
 }
 
-struct AllocatedHeader* NextAlloc()
+struct AllocatedHeader* NextAlloc(int size)
 {
-	return NULL;
+	struct AllocatedHeader* allocd = NULL;
+	struct FreeHeader* check = nextHead;
+	
+	do
+	{
+		if(check->length >= size) // There is room in this block
+		{
+			// Populate newly allocated meta
+			allocd		= ((void*)check) + sizeof(check);
+			allocd->length = size;
+			allocd->magic	= (void*)MAGIC;
+		
+			// Calculating...
+			void* nextFreeByte = ((void*)allocd) + sizeof(*allocd) + size;
+			int remainingLength = check->length - sizeof(*allocd) - size
+									- size - sizeof(struct FreeHeader);
+		
+			// Create new FreeHeader 
+			struct FreeHeader* newBlock = nextFreeByte;
+			newBlock->length = check->length - sizeof(*allocd) 
+								- size - sizeof(*newBlock);
+								
+			// Inserting newBlock into the freelist chain. If check was the
+			// last header, newBlock will be the new last header. Otherwise,
+			// newBlock will point wherever check did.
+			newBlock->next = check->next;
+				
+			// Update old meta information
+			check->length = 0; // This is empty now
+			check->next	= newBlock;
+		}
+		else
+		{
+		
+		}	
+	} while (check->next != NULL); // Until we reach the end of the freelist
+		
+	return allocd; // NULL on failure
 }
 
 int Mem_Free(void *ptr)
@@ -153,7 +184,7 @@ int Mem_Free(void *ptr)
 
 void Mem_Dump()
 {	
-	Dump(slabHead, "SLAB");
+	//Dump(slabHead, "SLAB");
 	Dump(nextHead, "NEXT FIT");
 
 	return;
@@ -166,12 +197,13 @@ int Dump(struct FreeHeader* head, char* name)
 	struct FreeHeader* tmp = head;
 	
 	// Output the *actually* free space
-	void* firstByte = ((void*)head)+sizeof(struct FreeHeader);
+	//void* firstByte = ((void*)head)+sizeof(struct FreeHeader);
 	
 	printf("%s HEAD\n", name);
 	printf("--------------------------\n");
+	printf("ADDR: %p\n", tmp);
 	printf("LENGTH: %d\n", tmp->length);
-	printf("FIRST BYTE: %p\n", firstByte);
+	//printf("FIRST BYTE: %p\n", firstByte);
 	printf("NEXT HEADER: %p\n", tmp->next);
 	printf("\n");
 	
@@ -181,8 +213,9 @@ int Dump(struct FreeHeader* head, char* name)
 		
 		printf("Space %d\n", i);
 		printf("--------------------------\n");
+		printf("ADDR: %p\n", tmp);
 		printf("LENGTH: %d\n", tmp->length);
-		printf("FIRST BYTE: %p\n", firstByte);
+		//printf("FIRST BYTE: %p\n", firstByte);
 		printf("NEXT HEADER: %p\n", tmp->next);
 		printf("\n");
 		

@@ -7,5 +7,6 @@
 int Dump(struct FreeHeader*, char* name);
 struct AllocatedHeader* SlabAlloc(int size);
 struct AllocatedHeader* NextAlloc(int size);
+//void announce(char* annoucement);
 
 #endif//ELSE_H
