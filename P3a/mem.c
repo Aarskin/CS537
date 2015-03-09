@@ -209,18 +209,56 @@ int Mem_Free(void *ptr)
 	{
 		// This *should be* the ptr's AllocatedHeader
 		struct AllocatedHeader* allocd = ptr - sizeof(struct AllocatedHeader);		
-		assert(allocd->magic == (void*)MAGIC); // Ensure we have an AllocatedHeader		
+		assert(allocd->magic == (void*)MAGIC); // A real AllocatedHeader		
 		int freedSpace = allocd->length + sizeof(*allocd);
 		
-		int check = Coalesce(allocd, freedSpace);
+		int check = NextCoalesce(allocd, freedSpace);
 		assert(check == 0);
 	}
 	
 	return 0;
 }
 
-int Coalesce(void* ptr, int freeBytes)
+int NextCoalesce(void* ptr, int freeBytes)
 {
+	struct FreeHeader* tmp = nextHead; // Start at the beginning
+	struct FreeHeader* lastBefore; // Last FreeHeader* before new mem
+	struct FreeHeader* firstAfter; // First FreeHeader* after new mem
+	void* postTmp; // The addr immediately after the current FreeHeader space
+	bool passed = false; // Flag for passing the freed space in memory
+	
+	void* startFree = ptr; // Starting address of newly freed space
+	void* postFree = ptr + freeBytes; // First still occupied address
+	
+	while(tmp != NULL) // Walk along the freelist
+	{
+		postTmp = ((void*)tmp)+sizeof(*tmp)+tmp->length;
+		
+		if(postTmp == startFree) // Contiguous! (tmp before ptr)
+		{
+			return 0;
+		}
+		
+		if(((void*)tmp) == postFree) // Contiguous! (ptr before tmp)
+		{
+			return 0;
+		}
+		
+		if(((void*)tmp) > postFree && !passed) // First FreeHeader after space
+		{
+			firstAfter = tmp;
+			passed = true;
+		}
+		
+		if(!passed) // Still before the freed space in memory
+		{
+			lastBefore = tmp;		
+		}
+		
+		// Increment to next FreeHeader
+		tmp = tmp->next;
+	}
+	
 	return 0;
 }
 
