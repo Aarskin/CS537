@@ -23,6 +23,8 @@ int main(int argc, char* argv[])
 	FreeAll();
 	//Mem_Dump();
 	NextAllocAndFree(1, 256);
+	//Mem_Dump();
+	Tinker();
 	Mem_Dump();
 	
 	// We win
@@ -67,7 +69,7 @@ void NextAllocAndFree(int sizePer, int vSpace)
 	int expectedRequests= 4;//nextSegSize / trueRequestSize;
 	
 	void* allocdPtrs[expectedRequests];
-	//void* failureExpected;
+	void* failureExpected;
 	
 	//printf("Expected Num Requests: %d\n", expectedRequests);
 	printf("Allocating...\n");
@@ -79,8 +81,8 @@ void NextAllocAndFree(int sizePer, int vSpace)
 		assert(allocdPtrs[i] != NULL);
 	}
 	
-	//failureExpected = Mem_Alloc(sizePer);
-	//assert(failureExpected == NULL);
+	failureExpected = Mem_Alloc(sizePer);
+	assert(failureExpected == NULL);
 	
 	printf("Freeing...\n");
 	
@@ -90,6 +92,33 @@ void NextAllocAndFree(int sizePer, int vSpace)
 		int check = Mem_Free(allocdPtrs[j]);
 		assert(check == 0);
 	}
-	printf("Success!\n");
+	printf("Success!\n\n");
+}
+
+void Tinker()
+{
+	printf("Tinkering...\n");
+	void* allocdPtrs[4];
+	
+	// Fill it up
+	int i;
+	for(i = 0; i < 3; i++)
+	{
+		allocdPtrs[i] = Mem_Alloc(1);
+		assert(allocdPtrs[i] != NULL);
+	}
+
+	int test = Mem_Free(allocdPtrs[2]);
+	assert(test == 0);
+
+	// Empty out of order
+	int j;
+	for(j = 1; j >= 0; j--)
+	{
+		int check = Mem_Free(allocdPtrs[j]);
+		assert(check == 0);
+	}
+	
+	printf("Success!\n\n");
 }
 

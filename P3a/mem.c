@@ -209,7 +209,8 @@ int Mem_Free(void *ptr)
 	{
 		// This *should be* the ptr's AllocatedHeader
 		struct AllocatedHeader* allocd = ptr - sizeof(struct AllocatedHeader);		
-		assert(allocd->magic == (void*)MAGIC); // A real AllocatedHeader		
+		assert(allocd->magic == (void*)MAGIC); // An active AllocatedHeader
+		allocd->magic = 0;	// Not anymore	
 		int freedSpace = allocd->length + sizeof(*allocd);
 		
 		// Add this chunk of memory back into the freelist chain
@@ -357,12 +358,12 @@ int Dump(struct FreeHeader* head, char* name)
 	// Output the *actually* free space
 	//void* firstByte = ((void*)head)+sizeof(struct FreeHeader);
 	
-	printf("%s HEAD\n", name);
-	printf("--------------------------\n");
+	printf("\n%s HEAD\n", name);
+	printf("---------------------\n");
 	printf("ADDR: %p\n", tmp);
 	printf("LENGTH: %d\n", tmp->length);
 	//printf("FIRST BYTE: %p\n", firstByte);
-	printf("NEXT HEADER: %p\n", tmp->next);
+	printf("NEXT: %p\n", tmp->next);
 	printf("\n");
 	
 	while(tmp->next != NULL)
@@ -370,11 +371,11 @@ int Dump(struct FreeHeader* head, char* name)
 		tmp = (struct FreeHeader*)tmp->next;
 		
 		printf("Space %d\n", i);
-		printf("--------------------------\n");
+		printf("---------------------\n");
 		printf("ADDR: %p\n", tmp);
 		printf("LENGTH: %d\n", tmp->length);
 		//printf("FIRST BYTE: %p\n", firstByte);
-		printf("NEXT HEADER: %p\n", tmp->next);
+		printf("NEXT: %p\n", tmp->next);
 		printf("\n");
 		
 		i++;
