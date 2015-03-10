@@ -87,10 +87,12 @@ void* Mem_Alloc(int size)
 	// or it failed and we should try NextAlloc. If it's not NULL,
 	// assume SlabAlloc was tried and did work;
 	if(allocd == NULL)
-		allocd = NextAlloc(size);		
-	
-	if(allocd != NULL) // Move allocd to the actually free byte in memory
-		allocd = ((void*)allocd) + sizeof (*allocd);
+	{
+		allocd = NextAlloc(size);
+		
+		if(allocd != NULL) // Move allocd to the actually free byte in memory
+			allocd = ((void*)allocd) + sizeof (*allocd);
+	}	
 		
 	return allocd; // NULL if both fail		
 }
@@ -310,7 +312,7 @@ int SlabCoalesce(void* ptr)
 		if(tmp->next == NULL)
 		{
 			tmp->next = freedSlab;
-			freedSMemlab->next = NULL;
+			freedSlab->next = NULL;
 			
 			break; // Boom, done
 		}
@@ -469,8 +471,8 @@ int NextCoalesce(void* ptr, int freeBytes)
 
 void Mem_Dump()
 {	
-	//Dump(slabHead, "SLAB");
-	Dump(nextHead, "NEXT FIT");
+	Dump(slabHead, "SLAB");
+	//Dump(nextHead, "NEXT FIT");
 
 	return;
 }

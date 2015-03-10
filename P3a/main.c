@@ -18,11 +18,15 @@ int main(int argc, char* argv[])
 	// Test
 	Initialize(init, slabSize);
 	Mem_Dump();
+	printf("Allocate");
 	void* ptr = Mem_Alloc(20);
 	assert(ptr != NULL);
 	Mem_Dump();
+	
+	printf("free");
 	int check = Mem_Free(ptr);
 	assert(check == 0);
+	Mem_Dump();
 	
 	/*
 	AllocAll();
