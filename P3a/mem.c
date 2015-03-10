@@ -278,8 +278,8 @@ int NextCoalesce(void* ptr, int freeBytes)
 		nextHead->next		= NULL; // All alone again
 		
 		return 0; // Nothing else to possibly coalesce with
-	}
-
+	}	
+	
 	struct FreeHeader* tmp = nextHead; // Start at the beginning
 	struct FreeHeader* lastBefore = NULL; // Last FreeHeader* before new mem
 	struct FreeHeader* firstAfter = NULL; // First FreeHeader* after new mem
@@ -291,6 +291,32 @@ int NextCoalesce(void* ptr, int freeBytes)
 	
 	struct FreeHeader* newFree = NULL; // Used when non-contiguous
 	struct FreeHeader* fitCheck = NULL; // Used in the perfect fit case
+	
+	// We're freeing something 'above' anything currently free, this region
+	// becomes the new nextHead with only post contiguity to consider (if there
+	// was a contiguous free region before this, it should already be the head)
+	// It's only possible for this to be contiguous with the (now) old head
+	if(((void*)nextHead) > ptr)
+	{
+		struct FreeHeader* oldHead = nextHead; // Save info
+		
+		nextHead = (struct FreeHeader*)ptr;
+		
+		if(postFree == ((void*)oldHead)) // They are contiguous
+		{
+			int newLength = freeBytes /*- sizeof(*nextHead)?*/ + oldHead->length;
+			
+			nextHead->length = newLength;
+			nextHead->next = oldHead->next;
+		}
+		else // They are NOT contiguous, point to your old self
+		{
+			nextHead->length = freeBytes - sizeof(*nextHead);
+			nextHead->next = oldHead;
+		}
+		
+		return 0; // No more contiguity possible
+	}
 	
 	while(tmp != NULL) // Walk along the freelist
 	{
@@ -380,7 +406,7 @@ int NextCoalesce(void* ptr, int freeBytes)
 	else
 	{
 		// Shouldn't happen
-		fprintf(stderr, "Coalesce failed");
+		fprintf(stderr, "Coalesce failed\n");
 		return -1;
 	}
 	
