@@ -51,7 +51,7 @@ void* Mem_Init(int sizeOfRegion, int slabSize)
 		
 			//tmp->length = slabSize; // Redundant (special size)
 			
-			if(nextSlab <= finalSlabStart)
+			if((void*)tmp < finalSlabStart)
 				tmp->next	= nextSlab; // Room for more
 			else
 				tmp->next = NULL; // This is the last slab
@@ -85,7 +85,7 @@ void* Mem_Alloc(int size)
 	
 	// If allocd is still NULL here, we either didn't try SlabAlloc,
 	// or it failed and we should try NextAlloc. If it's not NULL,
-	// assume SlabAlloc was tried and did work;.
+	// assume SlabAlloc was tried and did work;
 	if(allocd == NULL)
 		allocd = NextAlloc(size);		
 	
@@ -97,49 +97,29 @@ void* Mem_Alloc(int size)
 
 struct AllocatedHeader* SlabAlloc(int size)
 {
-	struct AllocatedHeader* allocd = NULL;
+	struct AllocatedHeader* allocd = NULL;	// Not filled, just an address
 	
-	if(slabHead->length < size)
+	if(size != specialSize) return allocd;	// The impossible case
+	if(slabHead == NULL) return allocd;	// Nothing here
+
+	// Give the allocated header the byte just after the slabHead and advance
+	// the slabHead to the next slab
+	allocd = (struct AllocatedHeader*)slabHead;
+	slabHead = slabHead->next;
+	
+	// Wipe it clean
+	int i;
+	for(i = 0; i < specialSize; i++)
 	{
-		return allocd; // NO SPACE 4 U
+		*(int*)((void*)allocd+i) = 0; 
 	}
-	else if(slabHead->length >= size)
-	{
-		// Give the allocated header the byte just after the slabHead
-		allocd = (struct AllocatedHeader*)(((void*)slabHead)
-					+sizeof(struct FreeHeader));
-					
-		allocd->length = size;
-		
-		return 0; // REmove
-		/*
-		// Initialize new AllocatedHeader
-		allocd = (struct AllocatedHeader*)(((void*)head)+sizeof(struct FreeHeader));
-		
-		// Populate the header
-		allocd->length = size; // Available to process
-		allocd->magic	= (void*) MAGIC; // The non-SHA-SHA
-		
-		// Update freelist
-		head->length -= trueSize; // Process space + Meta info
-		
-		if(head->length != trueSize) // Unless this request fits perfectly...
-		{
-			struct FreeHeader* newFreeBlock = (struct FreeHeader*)
-				(((void*)head) + sizeof(struct FreeHeader) + trueSize);
-			
-			newFreeBlock->length = size; // Available to process
-			newFreeBlock->next   = NULL; // NULL
-		}
-		
-		allocd += sizeof(struct AllocatedHeader); // Advance ptr to free space
-		*/
-	}
-	else
-	{
-		printf("HOW?");
-		exit(0);
-	}
+	
+	// Dont give out nextfit slabs!
+	if((void*)slabHead >= slabSegFault)
+		slabHead = NULL; // No slabs left
+	
+	return allocd;
+
 }
 
 // Size will be a multiple of 16
