@@ -3,6 +3,8 @@
 #include <stdbool.h>
 #include <stdio.h>
 #include <assert.h>
+#include <pthread.h>
+#include <time.h>
 #include "mymem.h"
 #include "else.h"
 
@@ -15,6 +17,9 @@ struct FreeHeader* slabHead;	// Slab allocator freelist HEAD
 struct FreeHeader* nextHead;	// Nextfit allocator freelist HEAD
 void* slabSegFault;			// Address of the byte after the slab segment
 void* nextSegFault;			// Address of the byte after the next segment
+
+pthread_mutex_t sLock = PTHREAD_MUTEX_INITIALIZER;	// Slab seg lock
+pthread_mutex_t nLock = PTHREAD_MUTEX_INITIALIZER;	// Next seg lock
 
 void* Mem_Init(int sizeOfRegion, int slabSize)
 {
@@ -67,6 +72,12 @@ void* Mem_Init(int sizeOfRegion, int slabSize)
 		nextHead->next		= NULL;
 		
 		nextSegFault = ((void*)nextHead) + nextSegSize;
+		
+		/*
+		// Initialize Locks!!
+		sLock = PTHREAD_MUTEX_INITIALIZER;
+		nLock = PTHREAD_MUTEX_INITIALIZER;
+		*/
 	}
 	
 	return addr; // Null pointer if initialized already!
@@ -77,7 +88,11 @@ void* Mem_Alloc(int size)
 	struct AllocatedHeader* allocd = NULL;
 	
 	if(size == specialSize) // Try slab allocation
+	{
+		pthread_mutex_lock(&sLock);		
 		allocd = SlabAlloc(size);
+		pthread_mutex_unlock(&sLock);
+	}
 		
 	// Spin size up to a multiple of 16 (modulo thinking was hurting)
 	while(size % 16 != 0)
@@ -88,7 +103,9 @@ void* Mem_Alloc(int size)
 	// assume SlabAlloc was tried and did work;
 	if(allocd == NULL)
 	{
+		pthread_mutex_lock(&nLock);
 		allocd = NextAlloc(size);
+		pthread_mutex_unlock(&nLock);
 		
 		if(allocd != NULL) // Move allocd to the actually free byte in memory
 			allocd = ((void*)allocd) + sizeof (*allocd);
@@ -237,16 +254,16 @@ int Mem_Free(void *ptr)
 		}
 		else
 		{
-			// Do what? fail?
-		}		
+			return -1;
+		}	
 	}
 	else
 	{
 		// The impossible case
-		printf("Unexpected Pointer: %p\n", ptr);
+		//printf("Unexpected Pointer: %p\n", ptr);
 		return -1;
 	}
-	
+
 	return 0;
 }
 
