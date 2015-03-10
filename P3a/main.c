@@ -11,13 +11,20 @@ void* allocd = NULL;
 int main(int argc, char* argv[])
 {
 	int init = 256;
-	int slabSize = 16;
+	int slabSize = 20;
 	
 	printf("\nInit: %d | Slab Size: %d\n\n", init, slabSize);
 	
 	// Test
 	Initialize(init, slabSize);
 	Mem_Dump();
+	void* ptr = Mem_Alloc(20);
+	assert(ptr != NULL);
+	Mem_Dump();
+	int check = Mem_Free(ptr);
+	assert(check == 0);
+	
+	/*
 	AllocAll();
 	Mem_Dump();
 	FreeAll();
@@ -26,6 +33,7 @@ int main(int argc, char* argv[])
 	//Mem_Dump();
 	Tinker();
 	Mem_Dump();
+	*/
 	
 	// We win
 	printf("\nALL TESTS PASSED\n\n");	

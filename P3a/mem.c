@@ -74,14 +74,14 @@ void* Mem_Init(int sizeOfRegion, int slabSize)
 
 void* Mem_Alloc(int size)
 {
-	// Spin size up to a multiple of 16 (modulo thinking was hurting)
-	while(size % 16 != 0)
-		size++;
-
 	struct AllocatedHeader* allocd = NULL;
 	
 	if(size == specialSize) // Try slab allocation
 		allocd = SlabAlloc(size);
+		
+	// Spin size up to a multiple of 16 (modulo thinking was hurting)
+	while(size % 16 != 0)
+		size++;
 	
 	// If allocd is still NULL here, we either didn't try SlabAlloc,
 	// or it failed and we should try NextAlloc. If it's not NULL,
@@ -200,7 +200,7 @@ int Mem_Free(void *ptr)
 		fprintf(stderr, "SEGFAULT\n");
 		return -1;
 	}
-	else if(seg == NEXT) // Valid nextSeg pointer
+	else if(seg == NEXT) // Potential nextSeg pointer
 	{
 		// This *should be* the ptr's AllocatedHeader
 		struct AllocatedHeader* allocd = ptr - sizeof(struct AllocatedHeader);		
@@ -212,12 +212,35 @@ int Mem_Free(void *ptr)
 		int check = NextCoalesce(allocd, freedSpace);
 		assert(check == 0);
 	}
-	else if(seg == SLAB) // Valid slabSeg pointer
+	else if(seg == SLAB) // Potential slabSeg pointer
 	{
+		// slabHead can (WILL) move. Beware! (sHead can't)
+		void* sHead = slabSegFault - slabSegSize;
+		int offset = ptr - ((void*)sHead);
 		
+		// The address of the pointer passed in should be offset from the 
+		// sHead pointer by an even multiple of specialSize (slab starts)
+		if(offset % specialSize == 0)
+		{
+		/*
+			// Actual slab in the slabSeg, check if it's already free
+			if(((struct FreeHeader*)ptr)->length == (int)MAGIC)
+				return 0; // Nothing to do
+			else
+			{			
+		*/
+				int check = SlabCoalesce(ptr); // Maintain the free chain
+				assert(check == 0);
+		//	}			
+		}
+		else
+		{
+			// Do what? fail?
+		}		
 	}
 	else
 	{
+		// The impossible case
 		printf("Unexpected Pointer: %p\n", ptr);
 		return -1;
 	}
@@ -245,6 +268,57 @@ seg_t PointerCheck(void* ptr)
 		assert(false); // Shouldn't be possible
 		
 	return ret;
+}
+
+// We know ptr to be a valid slab pointer
+int SlabCoalesce(void* ptr)
+{
+	struct FreeHeader* freedSlab	= (struct FreeHeader*)ptr;
+	struct FreeHeader* tmp		= slabHead; // For walking
+	
+	// Check if the slab being freed is above anything currently free. We need
+	// to make sure that slabHead is always the first free slab
+	if(((void*)slabHead) >= ptr)
+	{
+		struct FreeHeader* oldHead = slabHead;
+		slabHead = (struct FreeHeader*)ptr;
+		slabHead->next = oldHead;
+		
+		return 0; // Only link necessary
+	}
+	
+	// slabHead is the first free slab, walk down the list
+	while(tmp != NULL)
+	{
+		// Is freedSlab already part of the freelist?
+		if(((void*)tmp->next) == ptr)
+		{
+			break; // Already in list (nothing to do)
+		}		
+		
+		// If the tmp->next skips over freedSlab, we know whats up
+		if(((void*)tmp->next) > ptr)
+		{
+			freedSlab->next = tmp->next;
+			tmp->next = freedSlab;
+			
+			break; // Boom, done
+		}		
+		
+		// We looked at every. single. header. and never passed the freedSlab?
+		// It MUST be after the end of our list (or we wouldn't be here)
+		if(tmp->next == NULL)
+		{
+			tmp->next = freedSlab;
+			freedSMemlab->next = NULL;
+			
+			break; // Boom, done
+		}
+		
+		tmp = tmp->next; // Advance to next known FreeHeader
+	}
+	
+	return 0;
 }
 
 // freeBytes already accounts for the AllocatedHeader that was freed
@@ -359,7 +433,7 @@ int NextCoalesce(void* ptr, int freeBytes)
 	
 	newFree = (struct FreeHeader*)ptr; // Replace old AllocatedHeader
 	
-	// Dropping out of the loop implies checking every FreeHeader for 
+	// Dropping out of the loop implies checking every FreMeHeader for 
 	// contiguity and finding none. This could happen when:
 	// A) We found the true lastBefore and firstAfter FreeHeaders, neither were
 	//		contiguous, so we need to link the newly freed space to both

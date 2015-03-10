@@ -10,6 +10,7 @@ typedef int seg_t;
 #define	NEXT		1
 
 int Dump(struct FreeHeader*, char* name);
+int SlabCoalesce(void* ptr);
 int NextCoalesce(void* ptr, int freeBytes);
 seg_t PointerCheck(void* ptr);
 struct AllocatedHeader* SlabAlloc(int size);
