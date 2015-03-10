@@ -19,7 +19,7 @@ int main(int argc, char* argv[])
 	Initialize(init, slabSize);
 	Mem_Dump();
 	AllocAll();
-	//Mem_Dump();
+	Mem_Dump();
 	FreeAll();
 	//Mem_Dump();
 	NextAllocAndFree(1, 256);
@@ -43,7 +43,7 @@ void Initialize(int init, int slabSize)
 void AllocAll()
 {
 	printf("Allocating entire space...\n");	
-	allocd = Mem_Alloc(160);
+	allocd = Mem_Alloc(176);
 	assert(allocd != NULL);
 	printf("Success!\n\n");
 }
@@ -63,15 +63,15 @@ void NextAllocAndFree(int sizePer, int vSpace)
 		sizePer++; // Spin up to 16 bit alignment
 
 	// True size that will be consumed from the space available. Only used to
-	// calculate expected number of requests that will succeed
-	//int trueRequestSize = sizePer + (2 * sizeof(struct FreeHeader));
-	//int nextSegSize	= (3 * (vSpace/4)) - sizeof(struct FreeHeader);
-	int expectedRequests= 4;//nextSegSize / trueRequestSize;
+	// calculate expected number of requests that will succeed.
+	int trueRequestSize = sizePer + sizeof(struct AllocatedHeader);
+	int nextSegSize	= (3 * (vSpace/4));
+	int expectedRequests= nextSegSize / trueRequestSize;
 	
 	void* allocdPtrs[expectedRequests];
 	void* failureExpected;
 	
-	//printf("Expected Num Requests: %d\n", expectedRequests);
+	printf("Expected Num Requests: %d\n", expectedRequests);
 	printf("Allocating...\n");
 
 	int i;

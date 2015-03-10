@@ -147,49 +147,63 @@ struct AllocatedHeader* NextAlloc(int size)
 {
 	struct AllocatedHeader* allocd = NULL;
 	struct FreeHeader* check = nextHead; // Temp, for iteration
-	int trueSize = size + sizeof(struct AllocatedHeader);
+	struct FreeHeader* prev = NULL; // The most recently failed FreeHeader
 	
-	do
-	{	// There is room in this block (even when considering bookkeeping)
-		if(check->length >= trueSize) 
+	if(nextHead == NULL) return allocd; // Is memory full?
+	
+	do // Check every FreeHeader starting at the lowest Addressed one
+	{	
+		if(check->length >= size) 
 		{
-			// Populate newly allocated meta (at the start of the block)
-			allocd		= ((void*)check) + sizeof(*check);
-			allocd->length = size;
-			allocd->magic	= (void*)MAGIC;
-		
+			allocd = ((void*)check); // Replaces check FreeHeader
+			
 			// Calculating...
 			void* nextFreeByte = ((void*)allocd) + sizeof(*allocd) + size;
-			int remainingLength = check->length - sizeof(*allocd) - trueSize;
-		
-			// Checks if there are at least 16 bytes available for the
-			// storage of another FreeHeader. This header could potentially
-			// have 0 length (redundancy/performance hit)
-			//if(nextFreeByte + sizeof(FreeHeader) <= nextSegFault)
+			int remainingLength = check->length - size;
 			
-			if(remainingLength >= 0)
+			// Juuust enough room for a FreeHeader
+			if(remainingLength >= 16)
 			{
 				// Create new FreeHeader 
 				struct FreeHeader* newBlock = nextFreeByte;
-				newBlock->length = remainingLength;
+				newBlock->length = remainingLength - sizeof(*newBlock);
 				
 				// Inserting newBlock into the freelist chain. If check was 
-				// the last header, newBlock will be the new last header. c
+				// the last header, newBlock will be the new last header.
 				// Otherwise, newBlock will point wherever check did.
-				newBlock->next = check->next;			
-			}
+				newBlock->next = check->next;
 				
-			// Update outdated information
-			check->length = 0; // This block is empty now
-			
-			if(remainingLength >= 0)
-				check->next = nextFreeByte; // nextFreeByte == newBlock
+				// Check is either the nextHead or not:
+				// If it is, we are 'advancing' the nextHead struct 
+				// (where it will be 'rewinded' during coalition)
+				if(check == nextHead /*defensive*/ && prev == NULL)
+				{
+					nextHead = newBlock;
+				}
+				// Prev was pointing to the block we just replaced with an
+				// AllocatedHeader (no such block for nextHead). Point it to
+				// the newBlock instead.
+				else
+				{
+					prev->next = newBlock;
+				}
+			}
 			else
-				check->next = NULL;
+			{
+				nextHead = NULL; // Mapped memory is full!
+			}
+			
+			// Overwrite check after you are done with it!
+			allocd->length = size;
+			allocd->magic	= (void*)MAGIC;
 			
 			break; // Stop looping, there was room in check.
 		}
-		else check = check->next; // Move to the next FreeHeader	
+		else
+		{
+			prev = check;
+			check = check->next; // Move to the next FreeHeader
+		}
 	} while (check != NULL); 	 // Until we reach the end of the freelist
 		
 	return allocd; // NULL on failure
@@ -233,10 +247,11 @@ int Mem_Free(void *ptr)
 
 seg_t PointerCheck(void* ptr)
 {
-	void* sHead	= ((void*)slabHead);
-	void* sEnd	= sHead + slabSegSize;
-	void* nHead	= ((void*)nextHead);
-	void* nEnd	= nHead + nextSegSize;
+	// Head pointers can move, beware!
+	void* sHead	= slabSegFault - slabSegSize;
+	void* sEnd	= slabSegFault;
+	void* nHead	= nextSegFault - nextSegSize;
+	void* nEnd	= nextSegFault;
 	
 	int ret = FAULT;
 	
@@ -252,9 +267,19 @@ seg_t PointerCheck(void* ptr)
 	return ret;
 }
 
-// freeBytes already accounts for the AllocatedHeader being freed
+// freeBytes already accounts for the AllocatedHeader that was freed
 int NextCoalesce(void* ptr, int freeBytes)
 {
+	// Make sure there is something to do, if nextHead is NULL, ptr is new head
+	if(nextHead == NULL)
+	{
+		nextHead			= (struct FreeHeader*)ptr;
+		nextHead->length	= freeBytes - sizeof(*nextHead);
+		nextHead->next		= NULL; // All alone again
+		
+		return 0; // Nothing else to possibly coalesce with
+	}
+
 	struct FreeHeader* tmp = nextHead; // Start at the beginning
 	struct FreeHeader* lastBefore = NULL; // Last FreeHeader* before new mem
 	struct FreeHeader* firstAfter = NULL; // First FreeHeader* after new mem
@@ -376,8 +401,11 @@ int Dump(struct FreeHeader* head, char* name)
 	int i = 1;
 	struct FreeHeader* tmp = head;
 	
-	// Output the *actually* free space
-	//void* firstByte = ((void*)head)+sizeof(struct FreeHeader);
+	if(head == NULL) 
+	{
+		printf("\nNext Fit Segment Filled\n");
+		return 0;
+	}
 	
 	printf("\n%s HEAD\n", name);
 	printf("---------------------\n");
