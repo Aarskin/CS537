@@ -489,7 +489,7 @@ int NextCoalesce(void* ptr, int freeBytes)
 void Mem_Dump()
 {	
 	Dump(slabHead, "SLAB");
-	//Dump(nextHead, "NEXT FIT");
+	Dump(nextHead, "NEXT FIT");
 
 	return;
 }

@@ -18,26 +18,24 @@ int main(int argc, char* argv[])
 	// Test
 	Initialize(init, slabSize);
 	Mem_Dump();
-	printf("Allocate");
+	
+	printf("Allocate Slab Seg");
 	void* ptr = Mem_Alloc(20);
 	assert(ptr != NULL);
-	Mem_Dump();
+	//Mem_Dump();
 	
-	printf("free");
+	printf("Free Slab Segment");
 	int check = Mem_Free(ptr);
 	assert(check == 0);
-	Mem_Dump();
-	
-	/*
+	//Mem_Dump();
 	AllocAll();
-	Mem_Dump();
+	//Mem_Dump();
 	FreeAll();
 	//Mem_Dump();
 	NextAllocAndFree(1, 256);
+	////Mem_Dump();
+	//Tinker();
 	//Mem_Dump();
-	Tinker();
-	Mem_Dump();
-	*/
 	
 	// We win
 	printf("\nALL TESTS PASSED\n\n");	
