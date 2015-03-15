@@ -237,8 +237,10 @@ int Mem_Free(void *ptr)
 	{
 		Pthread_mutex_lock(&nLock);
 		// This *should be* the ptr's AllocatedHeader
-		struct AllocatedHeader* allocd = ptr - sizeof(struct AllocatedHeader);		
-		assert(allocd->magic == (void*)MAGIC); // An active AllocatedHeader
+		struct AllocatedHeader* allocd = ptr - sizeof(struct AllocatedHeader);
+		// Fail if this is not an allocatedHeader
+		if(!(allocd->magic == (void*)MAGIC))
+			return -1; // Can't free it! 
 		allocd->magic = 0; // Not anymore	
 		int freedSpace = allocd->length + sizeof(*allocd);
 		
