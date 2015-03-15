@@ -169,7 +169,7 @@ struct AllocatedHeader* NextAlloc(int size)
 				// Create new FreeHeader 
 				struct FreeHeader* newBlock = nextFreeByte;
 				newBlock->length = remainingLength - sizeof(*newBlock);
-				
+								
 				// Inserting newBlock into the freelist chain. If check was 
 				// the last header, newBlock will be the new last header.
 				// Otherwise, newBlock will point wherever check did.
@@ -202,6 +202,18 @@ struct AllocatedHeader* NextAlloc(int size)
 			// Overwrite check after you are done with it!
 			allocd->length = size;
 			allocd->magic	= (void*)MAGIC;
+						
+			if(allocd->length == specialSize)
+			{
+				// Wipe the memory clean, starting here
+				int* start = ((void*)allocd+sizeof(*allocd));
+			 
+				int i;
+				for(i = 0; i < 16; i++)
+				{
+					*(start+i) = 0;
+				}
+			}
 			
 			break; // Stop looping, there was room in check.
 		}
@@ -226,8 +238,7 @@ int Mem_Free(void *ptr)
 {
 	seg_t seg = PointerCheck(ptr);
 	
-	if(ptr == NULL)
-		return 0; // Do nothing, not even err
+	if(ptr == NULL) return 0; // Do nothing, not even err
 	else if(seg == FAULT)
 	{
 		fprintf(stderr, "SEGFAULT\n");
