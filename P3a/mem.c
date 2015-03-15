@@ -15,7 +15,7 @@ int slabSegSize;			// Size of slab segment in bytes
 int nextSegSize;			// Size of next segment in bytes
 struct FreeHeader* slabHead;	// Slab allocator freelist HEAD
 struct FreeHeader* nextHead;	// Nextfit allocator freelist HEAD
-struct Freeheader* nextStart;	// For use by nextFit algorithm
+struct FreeHeader* nextStart;	// For use by nextFit algorithm
 void* slabSegFault;			// Address of the byte after the slab segment
 void* nextSegFault;			// Address of the byte after the next segment
 
@@ -72,7 +72,7 @@ void* Mem_Init(int sizeOfRegion, int slabSize)
 		nextHead->length	= nextSegSize - sizeof(struct FreeHeader);
 		nextHead->next		= NULL;
 		
-		nextStart = (struct FreeHeader*)nextHead; // First call to alloc starts here
+		nextStart = nextHead; // First call to alloc starts here
 		
 		nextSegFault = ((void*)nextHead) + nextSegSize;
 		
@@ -178,7 +178,7 @@ struct AllocatedHeader* NextAlloc(int size)
 				// Check is either the nextHead or not:
 				// If it is, we are 'advancing' the nextHead struct 
 				// (where it will be 'rewinded' during coalition)
-				if(check == nextHead /*defensive*/ && prev == NULL)
+				if(check == nextStart /*defensive*/ && prev == NULL)
 				{
 					nextHead = newBlock;
 				}
@@ -196,6 +196,7 @@ struct AllocatedHeader* NextAlloc(int size)
 			else
 			{
 				nextHead = NULL; // Mapped memory is full!
+				nextStart = NULL;
 			}
 			
 			// Overwrite check after you are done with it!
@@ -210,7 +211,7 @@ struct AllocatedHeader* NextAlloc(int size)
 			check = check->next; // Move to the next FreeHeader
 			
 			// Loop back around (will terminate next pass if we started at
-			// the nextHead, as nextHead and nextStart will be identical)
+			// the nextHead, as nextHead and nextStart would be equivalent)
 			if(check == NULL)
 			{
 				check = nextHead;
@@ -383,6 +384,8 @@ int NextCoalesce(void* ptr, int freeBytes)
 		nextHead->length	= freeBytes - sizeof(*nextHead);
 		nextHead->next		= NULL; // All alone again
 		
+		nextStart = nextHead;
+		
 		return 0; // Nothing else to possibly coalesce with
 	}	
 	
@@ -521,7 +524,7 @@ int NextCoalesce(void* ptr, int freeBytes)
 
 void Mem_Dump()
 {	
-	Dump(slabHead, "SLAB");
+	//Dump(slabHead, "SLAB");
 	Dump(nextHead, "NEXT FIT");
 
 	return;
