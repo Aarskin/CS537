@@ -16,5 +16,8 @@ seg_t PointerCheck(void* ptr);
 struct AllocatedHeader* SlabAlloc(int size);
 struct AllocatedHeader* NextAlloc(int size);
 
+void Pthread_mutex_lock(pthread_mutex_t*);
+void Pthread_mutex_unlock(pthread_mutex_t*);
+
 
 #endif//ELSE_H

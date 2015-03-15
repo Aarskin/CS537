@@ -15,6 +15,7 @@ int slabSegSize;			// Size of slab segment in bytes
 int nextSegSize;			// Size of next segment in bytes
 struct FreeHeader* slabHead;	// Slab allocator freelist HEAD
 struct FreeHeader* nextHead;	// Nextfit allocator freelist HEAD
+struct Freeheader* nextStart;	// For when alloc
 void* slabSegFault;			// Address of the byte after the slab segment
 void* nextSegFault;			// Address of the byte after the next segment
 
@@ -89,9 +90,9 @@ void* Mem_Alloc(int size)
 	
 	if(size == specialSize) // Try slab allocation
 	{
-		pthread_mutex_lock(&sLock);		
+		Pthread_mutex_lock(&sLock);		
 		allocd = SlabAlloc(size);
-		pthread_mutex_unlock(&sLock);
+		Pthread_mutex_unlock(&sLock);
 	}
 		
 	// Spin size up to a multiple of 16 (modulo thinking was hurting)
@@ -103,9 +104,9 @@ void* Mem_Alloc(int size)
 	// assume SlabAlloc was tried and did work;
 	if(allocd == NULL)
 	{
-		pthread_mutex_lock(&nLock);
+		Pthread_mutex_lock(&nLock);
 		allocd = NextAlloc(size);
-		pthread_mutex_unlock(&nLock);
+		Pthread_mutex_unlock(&nLock);
 		
 		if(allocd != NULL) // Move allocd to the actually free byte in memory
 			allocd = ((void*)allocd) + sizeof (*allocd);
@@ -145,7 +146,7 @@ struct AllocatedHeader* SlabAlloc(int size)
 struct AllocatedHeader* NextAlloc(int size)
 {
 	struct AllocatedHeader* allocd = NULL;
-	struct FreeHeader* check = nextHead; // Temp, for iteration
+	struct FreeHeader* check = nextStart; // Temp, for iteration
 	struct FreeHeader* prev = NULL; // The most recently failed FreeHeader
 	
 	if(nextHead == NULL) return allocd; // Is memory full?
@@ -221,6 +222,7 @@ int Mem_Free(void *ptr)
 	}
 	else if(seg == NEXT) // Potential nextSeg pointer
 	{
+		Pthread_mutex_lock(&nLock);
 		// This *should be* the ptr's AllocatedHeader
 		struct AllocatedHeader* allocd = ptr - sizeof(struct AllocatedHeader);		
 		assert(allocd->magic == (void*)MAGIC); // An active AllocatedHeader
@@ -229,13 +231,18 @@ int Mem_Free(void *ptr)
 		
 		// Add this chunk of memory back into the freelist chain
 		int check = NextCoalesce(allocd, freedSpace);
+		
+		// Don't stay locked forever if coalescing failed
+		Pthread_mutex_unlock(&nLock); 
 		assert(check == 0);
 	}
 	else if(seg == SLAB) // Potential slabSeg pointer
 	{
+		Pthread_mutex_lock(&sLock);
 		// slabHead can (WILL) move. Beware! (sHead can't)
 		void* sHead = slabSegFault - slabSegSize;
 		int offset = ptr - ((void*)sHead);
+		int check = 0;
 		
 		// The address of the pointer passed in should be offset from the 
 		// sHead pointer by an even multiple of specialSize (slab starts)
@@ -248,14 +255,16 @@ int Mem_Free(void *ptr)
 			else
 			{			
 		*/
-				int check = SlabCoalesce(ptr); // Maintain the free chain
-				assert(check == 0);
+				check = SlabCoalesce(ptr); // Maintain the free chain
 		//	}			
 		}
 		else
 		{
 			return -1;
 		}	
+		
+		Pthread_mutex_unlock(&sLock);
+		assert(check == 0);
 	}
 	else
 	{
@@ -265,6 +274,18 @@ int Mem_Free(void *ptr)
 	}
 
 	return 0;
+}
+
+void Pthread_mutex_lock(pthread_mutex_t* lock)
+{
+	int check = pthread_mutex_lock(lock);
+	assert(check == 0);
+}
+
+void Pthread_mutex_unlock(pthread_mutex_t* lock)
+{
+	int check = pthread_mutex_unlock(lock);
+	assert(check == 0);
 }
 
 seg_t PointerCheck(void* ptr)
