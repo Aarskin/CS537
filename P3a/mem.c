@@ -15,7 +15,7 @@ int slabSegSize;			// Size of slab segment in bytes
 int nextSegSize;			// Size of next segment in bytes
 struct FreeHeader* slabHead;	// Slab allocator freelist HEAD
 struct FreeHeader* nextHead;	// Nextfit allocator freelist HEAD
-struct Freeheader* nextStart;	// For when alloc
+struct Freeheader* nextStart;	// For use by nextFit algorithm
 void* slabSegFault;			// Address of the byte after the slab segment
 void* nextSegFault;			// Address of the byte after the next segment
 
@@ -71,6 +71,8 @@ void* Mem_Init(int sizeOfRegion, int slabSize)
 		nextHead			= (struct FreeHeader*)(addr + slabSegSize);
 		nextHead->length	= nextSegSize - sizeof(struct FreeHeader);
 		nextHead->next		= NULL;
+		
+		nextStart = (struct FreeHeader*)nextHead; // First call to alloc starts here
 		
 		nextSegFault = ((void*)nextHead) + nextSegSize;
 		
@@ -151,9 +153,9 @@ struct AllocatedHeader* NextAlloc(int size)
 	
 	if(nextHead == NULL) return allocd; // Is memory full?
 	
-	do // Check every FreeHeader starting at the lowest Addressed one
+	do // Check every FreeHeader starting with nextStart
 	{	
-		if(check->length >= size) 
+		if(check->length >= size)
 		{
 			allocd = ((void*)check); // Replaces check FreeHeader
 			
@@ -181,12 +183,15 @@ struct AllocatedHeader* NextAlloc(int size)
 					nextHead = newBlock;
 				}
 				// Prev was pointing to the block we just replaced with an
-				// AllocatedHeader (no such block for nextHead). Point it to
+				// AllocatedHeader (prev d.n.e. if nextHead). Point it to
 				// the newBlock instead.
 				else
 				{
 					prev->next = newBlock;
 				}
+				
+				// Either way, start at the new block on the next alloc
+				nextStart = newBlock;
 			}
 			else
 			{
@@ -199,12 +204,19 @@ struct AllocatedHeader* NextAlloc(int size)
 			
 			break; // Stop looping, there was room in check.
 		}
-		else
+		else // There was no room in check
 		{
 			prev = check;
 			check = check->next; // Move to the next FreeHeader
+			
+			// Loop back around (will terminate next pass if we started at
+			// the nextHead, as nextHead and nextStart will be identical)
+			if(check == NULL)
+			{
+				check = nextHead;
+			}	
 		}
-	} while (check != NULL); 	 // Until we reach the end of the freelist
+	} while (check != nextStart); // Until we loop around
 		
 	return allocd; // NULL on failure
 }
