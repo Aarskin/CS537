@@ -50,20 +50,20 @@ int main(int argc, char* argv[])
 	for(i=0; i<expectedNRequests; i++)
    	{
    		//printf("%d ", i);
-	   	nPtr = Mem_Alloc(32);
+	   	nPtr = Mem_Alloc(requestSize);
 	   	
 	   	assert(lastSlab->next == NULL);
 		assert(nPtr != NULL);
 		
 		header = nPtr-sizeof(struct AllocatedHeader);
-		regEnd = ((void*)header) + sizeof(struct AllocatedHeader) + header->length;
+		regEnd = ((void*)header)+sizeof(struct AllocatedHeader)+header->length;
 		
 		assert(((void*)header) >= nextStart);
 		assert(regEnd <= nextFault);
 		
 		allocdNPtrs[i]=nPtr;
    	}
-   	assert(Mem_Alloc(32) == NULL);
+   	assert(Mem_Alloc(requestSize) == NULL);
 	printf("\t\t\t[PASS]\n");
 	
    	printf("Filling slab segment...");
@@ -95,49 +95,51 @@ int main(int argc, char* argv[])
    		assert(Mem_Free(allocdSPtrs[i])==0);
    	}
 	//?assert(Mem_Free(allocdSPtrs[5])!=0);
-   	printf("\t\t\t[PASS]\n"); 
+   	printf("\t\t\t[PASS]\n\n"); 
    	
    	// Stress Free Segment Coalescing /////////////////////////////////////////
-   	printf("Stressing Free Coalescing...");
-   	void* n1,* n2,* n3;
-   	for(i=0; i<expectedNRequests; i++)
+   	printf("Stressing Free Coalescing...\n\n");
+   	for(i=0; i<expectedNRequests; i++) // Fill the next fit segment
    	{
-   		if(i == 5)
-   		{
-   			nPtr = n1 = Mem_Alloc(32);
-   		}
-   		else if(i == 6)
-   		{
-   			nPtr = n2 = Mem_Alloc(32);
-   		}
-   		else if(i == 7)
-   		{
-		   	nPtr = n3 = Mem_Alloc(32);   		
-   		}
-   		else
-   		{
-		   	nPtr = Mem_Alloc(32);   		
-   		}
-	   	
-	   	assert(lastSlab->next == NULL);
+		nPtr = Mem_Alloc(requestSize);
+		
 		assert(nPtr != NULL);
 		
 		header = nPtr-sizeof(struct AllocatedHeader);
-		regEnd = ((void*)header) + sizeof(struct AllocatedHeader) + header->length;
+		regEnd = ((void*)header)+sizeof(struct AllocatedHeader)+header->length;
 		
 		assert(((void*)header) >= nextStart);
 		assert(regEnd <= nextFault);
 		
 		allocdNPtrs[i]=nPtr;
-   	}
-   	Mem_Free(n1);
-   	Mem_Dump();
-   	Mem_Free(n2);
-   	Mem_Dump();
-   	Mem_Free(n3);
-   	Mem_Dump();
-   	printf("\t\t\t[PASS]");
+   	}   	
    	
+   	/* Verified with my eyeballs - Trust your past self! 
+   		(unless you've touched mem.c since 5:16pm on 3/16)
+   		
+   		Using 1=5,2=6,3=7
+   		- Free 3 contiguous chunks (1,2,3)
+   		- Free 3 contiguous chunks (1,3,2)
+   		- Free 3 contiguous chunks (2,1,3)
+   		- Free 3 contiguous chunks (2,3,1)
+   		- Free 3 contiguous chunks (3,1,2)
+   		- Free 3 contiguous chunks (3,2,1)
+   	*/
+   	
+   	// These lines change a lot
+   	printf("[5]: %p\n", (void*)allocdNPtrs[5] - sizeof(struct AllocatedHeader));
+   	printf("[6]: %p\n", (void*)allocdNPtrs[6] - sizeof(struct AllocatedHeader));
+   	printf("[7]: %p\n", (void*)allocdNPtrs[7] - sizeof(struct AllocatedHeader));
+   	//printf("[10]: %p\n\n", (void*)allocdNPtrs[10] - sizeof(struct AllocatedHeader));
+   	
+   	assert(Mem_Free(allocdNPtrs[1])==0);
+   	Mem_Dump();
+   	assert(Mem_Free(allocdNPtrs[7])==0);
+   	Mem_Dump();
+   	assert(Mem_Free(allocdNPtrs[6])==0);
+   	Mem_Dump();
+   	assert(Mem_Free(allocdNPtrs[5])==0);
+   	Mem_Dump();   	
    	
   	printf("\nAll tests passed!\n");
   	exit(0);	
