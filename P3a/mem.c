@@ -360,6 +360,8 @@ int SlabCoalesce(void* ptr)
 	{
 		slabHead = (struct FreeHeader*)ptr;
 		slabHead->next = NULL; // This is the only one now
+		
+		return 0; // Nothing else to possibly link to
 	}
 	
 	// Check if the slab being freed is above anything currently free. We need
