@@ -491,7 +491,7 @@ int NextCoalesce(void* ptr, int freeBytes)
 	
 	newFree = (struct FreeHeader*)ptr; // Replace old AllocatedHeader
 	
-	// Dropping out of the loop implies checking every FreMeHeader for 
+	// Dropping out of the loop implies checking every FreeHeader for 
 	// contiguity and finding none. This could happen when:
 	// A) We found the true lastBefore and firstAfter FreeHeaders, neither were
 	//		contiguous, so we need to link the newly freed space to both
