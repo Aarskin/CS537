@@ -19,5 +19,7 @@ struct AllocatedHeader* NextAlloc(int size);
 void Pthread_mutex_lock(pthread_mutex_t*);
 void Pthread_mutex_unlock(pthread_mutex_t*);
 
+struct FreeHeader* getLastSlab();
+
 
 #endif//ELSE_H

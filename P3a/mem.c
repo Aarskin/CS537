@@ -28,6 +28,15 @@ pthread_mutex_t sLock = PTHREAD_MUTEX_INITIALIZER;	// Slab seg lock
 pthread_mutex_t nLock = PTHREAD_MUTEX_INITIALIZER;	// Next seg lock
 pthread_mutex_t gLock = PTHREAD_MUTEX_INITIALIZER;	// Huge fat lock
 
+///// DEBUG ONLY
+struct FreeHeader* lastSlab;
+
+struct FreeHeader* getLastSlab()
+{
+	return lastSlab;
+}
+////////////////
+
 void* Mem_Init(int sizeOfRegion, int slabSize)
 {
 	void* addr = NULL;	// Starting address of newly mapped mem
@@ -47,12 +56,14 @@ void* Mem_Init(int sizeOfRegion, int slabSize)
 		addr = mmap(NULL, sizeOfRegion, PROT_READ | PROT_WRITE, 
 						MAP_ANON | MAP_PRIVATE, -1, 0);
 			
-		assert(addr != MAP_FAILED); // Bail on error (for now?)
+		if(addr == MAP_FAILED)
+			return NULL; // Something is wrong
 		initialized = true;
 				
 		// Slab segment init
 		int headerSize = sizeof(struct FreeHeader);
 		slabHead = (struct FreeHeader*)addr; // addr returned by mmap
+		slabSegFault = ((void*)slabHead) + slabSegSize;
 		void* finalSlabStart = ((void*)slabHead) + slabSegSize - headerSize;
 		
 		struct FreeHeader* tmp = slabHead; // i = 0
@@ -71,14 +82,12 @@ void* Mem_Init(int sizeOfRegion, int slabSize)
 				tmp->next = NULL; // This is the last slab
 				
 				///// DEBUG USE ONLY
-				
+				lastSlab = tmp;
 				////////////////////
 			}
 			
 			tmp = (struct FreeHeader*)nextSlab; // Advance
 		}
-		
-		slabSegFault = ((void*)slabHead) + slabSegSize;
 				
 		// Next fit segment init
 		nextHead			= (struct FreeHeader*)(addr + slabSegSize);

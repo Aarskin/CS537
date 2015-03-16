@@ -4,6 +4,7 @@
 #include <assert.h>
 #include "mymem.h"
 #include "tests.h"
+#include "else.h"
 
 void* baseAddr = NULL;
 void* allocd = NULL;
@@ -31,6 +32,8 @@ int main(int argc, char* argv[])
 	// Initialize Memory
 	iPtr = Mem_Init(bytes, slabSize);
 	assert(iPtr!=NULL);
+	
+	struct FreeHeader* lastSlab = getLastSlab();
 
 	//void* slabStart = iPtr;
 	void* nextStart = iPtr + slabSegSize;
@@ -40,18 +43,24 @@ int main(int argc, char* argv[])
 	struct AllocatedHeader* header;
 	void* regEnd;
 	
-	Mem_Dump();
+	//Mem_Dump();
 
 	// Fill up nextFit
 	printf("\nFilling next fit segment...");
 	for(i=0; i<expectedNRequests; i++)
    	{
+   		printf("%d ", i);
 	   	nPtr = Mem_Alloc(32);
+	   	
+	   	assert(lastSlab->next == NULL);
 		assert(nPtr != NULL);
+		
 		header = nPtr-sizeof(struct AllocatedHeader);
 		regEnd = ((void*)header) + sizeof(struct AllocatedHeader) + header->length;
+		
 		assert(((void*)header) >= nextStart);
 		assert(regEnd <= nextFault);
+		
 		allocdNPtrs[i]=nPtr;
    	}
    	assert(Mem_Alloc(32) == NULL);
