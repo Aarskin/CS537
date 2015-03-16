@@ -252,7 +252,7 @@ int Mem_Free(void *ptr)
 		// Fail if this is not an allocatedHeader
 		if(!(allocd->magic == (void*)MAGIC))
 			return -1; // Can't free it! 
-		allocd->magic = 0; // Not anymore	
+		allocd->magic = 0; // Not allocated anymore
 		int freedSpace = allocd->length + sizeof(*allocd);
 		
 		// Add this chunk of memory back into the freelist chain
@@ -272,15 +272,7 @@ int Mem_Free(void *ptr)
 		// sHead pointer by an even multiple of specialSize (slab starts)
 		if(offset % specialSize == 0)
 		{
-		/*
-			// Actual slab in the slabSeg, check if it's already free
-			if(((struct FreeHeader*)ptr)->length == (int)MAGIC)
-				return 0; // Nothing to do
-			else
-			{			
-		*/
-				check = SlabCoalesce(ptr); // Maintain the free chain
-		//	}			
+			check = SlabCoalesce(ptr); // Maintain the free chain		
 		}
 		else
 		{
