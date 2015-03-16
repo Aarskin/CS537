@@ -576,7 +576,7 @@ int Dump(struct FreeHeader* head, char* name)
 		return 0;
 	}
 	
-	printf("\n%s HEAD\n", name);
+	printf("%s HEAD\n", name);
 	printf("---------------------\n");
 	printf("ADDR: %p\n", tmp);
 	printf("LENGTH: %d\n", tmp->length);

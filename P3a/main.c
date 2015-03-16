@@ -43,7 +43,7 @@ int main(int argc, char* argv[])
 	struct AllocatedHeader* header;
 	void* regEnd;
 	
-	Mem_Dump();
+	//Mem_Dump();
 
 	// Fill Memory
 	printf("\nFilling next fit segment...");
@@ -92,17 +92,16 @@ int main(int argc, char* argv[])
    	printf("Emptying full slab segment...");
    	for(i=0; i<expectedSRequests; i++)
    	{
-   		//assert(Mem_Free(allocdSPtrs[i])==0);
+   		assert(Mem_Free(allocdSPtrs[i])==0);
    	}
 	//?assert(Mem_Free(allocdSPtrs[5])!=0);
-   	printf("\t\t[PASS]\n"); 
+   	printf("\t\t\t[PASS]\n"); 
    	
    	//Mem_Dump(); 	
    	
-   	//Mem_Dump();
    	
    	
-  	printf("\n\nAll tests passed!");
+  	printf("\nAll tests passed!\n");
   	exit(0);	
 }
 
