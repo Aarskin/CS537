@@ -558,7 +558,7 @@ int NextCoalesce(void* ptr, int freeBytes)
 
 void Mem_Dump()
 {	
-	Dump(slabHead, "SLAB");
+	//Dump(slabHead, "SLAB");
 	Dump(nextHead, "NEXT FIT");
 
 	return;
@@ -572,29 +572,29 @@ int Dump(struct FreeHeader* head, char* name)
 	
 	if(head == NULL) 
 	{
-		printf("\n%s Segment Filled\n", name);
+		fprintf(stderr, "\n%s Segment Filled\n", name);
 		return 0;
 	}
 	
-	printf("%s HEAD\n", name);
-	printf("---------------------\n");
-	printf("ADDR: %p\n", tmp);
-	printf("LENGTH: %d\n", tmp->length);
+	fprintf(stderr, "%s HEAD\n", name);
+	fprintf(stderr, "---------------------\n");
+	fprintf(stderr, "ADDR: %p\n", tmp);
+	fprintf(stderr, "LENGTH: %d\n", tmp->length);
 	//printf("FIRST BYTE: %p\n", firstByte);
-	printf("NEXT: %p\n", tmp->next);
-	printf("\n");
+	fprintf(stderr, "NEXT: %p\n", tmp->next);
+	fprintf(stderr, "\n");
 	
 	while(tmp->next != NULL)
 	{
 		tmp = (struct FreeHeader*)tmp->next;
 		
-		printf("Space %d\n", i);
-		printf("---------------------\n");
-		printf("ADDR: %p\n", tmp);
-		printf("LENGTH: %d\n", tmp->length);
+		fprintf(stderr, "Space %d\n", i);
+		fprintf(stderr, "---------------------\n");
+		fprintf(stderr, "ADDR: %p\n", tmp);
+		fprintf(stderr, "LENGTH: %d\n", tmp->length);
 		//printf("FIRST BYTE: %p\n", firstByte);
-		printf("NEXT: %p\n", tmp->next);
-		printf("\n");
+		fprintf(stderr, "NEXT: %p\n", tmp->next);
+		fprintf(stderr, "\n");
 		
 		i++;
 	}

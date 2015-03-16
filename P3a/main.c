@@ -45,7 +45,7 @@ int main(int argc, char* argv[])
 	
 	//Mem_Dump();
 
-	// Fill Memory
+	// Fill Memory ////////////////////////////////////////////////////////////
 	printf("\nFilling next fit segment...");
 	for(i=0; i<expectedNRequests; i++)
    	{
@@ -79,7 +79,7 @@ int main(int argc, char* argv[])
 	
 	//Mem_Dump();	
 	
-	// Empty memory
+	// Empty memory ///////////////////////////////////////////////////////////
 	printf("Emptying full next fit segment...");
 	for(i=0; i<expectedNRequests; i++)
    	{
@@ -97,8 +97,46 @@ int main(int argc, char* argv[])
 	//?assert(Mem_Free(allocdSPtrs[5])!=0);
    	printf("\t\t\t[PASS]\n"); 
    	
-   	//Mem_Dump(); 	
-   	
+   	// Stress Free Segment Coalescing /////////////////////////////////////////
+   	printf("Stressing Free Coalescing...");
+   	void* n1,* n2,* n3;
+   	for(i=0; i<expectedNRequests; i++)
+   	{
+   		if(i == 5)
+   		{
+   			nPtr = n1 = Mem_Alloc(32);
+   		}
+   		else if(i == 6)
+   		{
+   			nPtr = n2 = Mem_Alloc(32);
+   		}
+   		else if(i == 7)
+   		{
+		   	nPtr = n3 = Mem_Alloc(32);   		
+   		}
+   		else
+   		{
+		   	nPtr = Mem_Alloc(32);   		
+   		}
+	   	
+	   	assert(lastSlab->next == NULL);
+		assert(nPtr != NULL);
+		
+		header = nPtr-sizeof(struct AllocatedHeader);
+		regEnd = ((void*)header) + sizeof(struct AllocatedHeader) + header->length;
+		
+		assert(((void*)header) >= nextStart);
+		assert(regEnd <= nextFault);
+		
+		allocdNPtrs[i]=nPtr;
+   	}
+   	Mem_Free(n1);
+   	Mem_Dump();
+   	Mem_Free(n2);
+   	Mem_Dump();
+   	Mem_Free(n3);
+   	Mem_Dump();
+   	printf("\t\t\t[PASS]");
    	
    	
   	printf("\nAll tests passed!\n");
