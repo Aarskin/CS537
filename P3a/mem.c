@@ -5,6 +5,7 @@
 #include <assert.h>
 #include <pthread.h>
 #include <time.h>
+#include <string.h>
 #include "mymem.h"
 #include "else.h"
 
@@ -126,15 +127,18 @@ struct AllocatedHeader* SlabAlloc(int size)
 
 	// Give the allocated header the byte just after the slabHead and advance
 	// the slabHead to the next slab
-	allocd = (struct AllocatedHeader*)slabHead;
+	allocd = (void*)slabHead;
 	slabHead = slabHead->next;
 	
 	// Wipe it clean
+	memset(allocd, 0, specialSize);
+	/*
 	int i;
 	for(i = 0; i < specialSize; i++)
 	{
 		*(int*)((void*)allocd+i) = 0; 
 	}
+	*/
 	
 	// Dont give out nextfit slabs!
 	if((void*)slabHead >= slabSegFault)
@@ -205,6 +209,9 @@ struct AllocatedHeader* NextAlloc(int size)
 						
 			if(allocd->length == specialSize)
 			{
+				void* start = ((void*)allocd)+sizeof(*allocd);
+				memset(start, 0, specialSize);
+			/*
 				// Wipe the memory clean, starting here
 				int* start = ((void*)allocd+sizeof(*allocd));
 			 
@@ -213,6 +220,7 @@ struct AllocatedHeader* NextAlloc(int size)
 				{
 					*(start+i) = 0;
 				}
+				*/
 			}
 			
 			break; // Stop looping, there was room in check.
@@ -491,8 +499,7 @@ int NextCoalesce(void* ptr, int freeBytes)
 	
 	newFree = (struct FreeHeader*)ptr; // Replace old AllocatedHeader
 	
-	// Dropping out of the loop implies checking every FreeHeader for 
-	// contiguity and finding none. This could happen when:
+	// This could happen when:
 	// A) We found the true lastBefore and firstAfter FreeHeaders, neither were
 	//		contiguous, so we need to link the newly freed space to both
 	if(lastBefore != NULL && firstAfter != NULL)
@@ -501,7 +508,7 @@ int NextCoalesce(void* ptr, int freeBytes)
 		lastBefore->next	= newFree; // Length is unchanged
 		
 		// Link new to old
-		newFree->length	= freeBytes;
+		newFree->length	= freeBytes - sizeof(*newFree);
 		newFree->next		= firstAfter;
 	}
 	// B) The newly freed space is after the last currently available free 
@@ -512,7 +519,7 @@ int NextCoalesce(void* ptr, int freeBytes)
 		lastBefore->next	= newFree; // Length is unchanged
 		
 		// Initialize new space
-		newFree->length	= freeBytes; 
+		newFree->length	= freeBytes - sizeof(*newFree);
 		newFree->next		= NULL; // New end of freelist
 	}
 	else
