@@ -20,14 +20,20 @@ struct FreeHeader* nextStart;	// For use by nextFit algorithm
 void* slabSegFault;			// Address of the byte after the slab segment
 void* nextSegFault;			// Address of the byte after the next segment
 
+// Head pointers can move, beware!
+void* sHead;	// Static ptr to head of slab segment
+void* nHead;	// Static ptr to head of next segment
+
 pthread_mutex_t sLock = PTHREAD_MUTEX_INITIALIZER;	// Slab seg lock
 pthread_mutex_t nLock = PTHREAD_MUTEX_INITIALIZER;	// Next seg lock
+pthread_mutex_t gLock = PTHREAD_MUTEX_INITIALIZER;	// Huge fat lock
 
 void* Mem_Init(int sizeOfRegion, int slabSize)
 {
 	void* addr = NULL;	// Starting address of newly mapped mem
 	//int trueSize = sizeOfRegion + sizeof(struct FreeHeader); // Count meta
 	
+	Pthread_mutex_lock(&gLock);
 	if(!initialized) // Only do this stuff once
 	{
 		while(sizeOfRegion % 16 != 0) // 16 bit alignment
@@ -61,9 +67,15 @@ void* Mem_Init(int sizeOfRegion, int slabSize)
 			if((void*)tmp < finalSlabStart)
 				tmp->next	= nextSlab; // Room for more
 			else
+			{
 				tmp->next = NULL; // This is the last slab
+				
+				///// DEBUG USE ONLY
+				
+				////////////////////
+			}
 			
-			tmp = (struct FreeHeader*)nextSlab;	
+			tmp = (struct FreeHeader*)nextSlab; // Advance
 		}
 		
 		slabSegFault = ((void*)slabHead) + slabSegSize;
@@ -82,20 +94,26 @@ void* Mem_Init(int sizeOfRegion, int slabSize)
 		sLock = PTHREAD_MUTEX_INITIALIZER;
 		nLock = PTHREAD_MUTEX_INITIALIZER;
 		*/
+		
+		// Head pointers can move, beware!
+		sHead= slabHead;
+		nHead= nextHead;
 	}
+	Pthread_mutex_unlock(&gLock);
 	
 	return addr; // Null pointer if initialized already!
 }
 
 void* Mem_Alloc(int size)
 {
+	Pthread_mutex_lock(&gLock);
 	struct AllocatedHeader* allocd = NULL;
 	
 	if(size == specialSize) // Try slab allocation
 	{
-		Pthread_mutex_lock(&sLock);		
+		//Pthread_mutex_lock(&sLock);		
 		allocd = SlabAlloc(size);
-		Pthread_mutex_unlock(&sLock);
+		//Pthread_mutex_unlock(&sLock);
 	}
 		
 	// Spin size up to a multiple of 16 (modulo thinking was hurting)
@@ -107,13 +125,14 @@ void* Mem_Alloc(int size)
 	// assume SlabAlloc was tried succesfully
 	if(allocd == NULL)
 	{
-		Pthread_mutex_lock(&nLock);
+		//Pthread_mutex_lock(&nLock);
 		allocd = NextAlloc(size);
-		Pthread_mutex_unlock(&nLock);
+		//Pthread_mutex_unlock(&nLock);
 		
 		if(allocd != NULL) // Move allocd to the actually free byte in memory
 			allocd = ((void*)allocd) + sizeof (*allocd);
-	}	
+	}
+	Pthread_mutex_unlock(&gLock);
 		
 	return allocd; // NULL if both fail		
 }
@@ -236,6 +255,7 @@ struct AllocatedHeader* NextAlloc(int size)
 
 int Mem_Free(void *ptr)
 {
+	Pthread_mutex_lock(&gLock);
 	seg_t seg = PointerCheck(ptr);
 	
 	if(ptr == NULL) return 0; // Do nothing, not even err
@@ -246,7 +266,7 @@ int Mem_Free(void *ptr)
 	}
 	else if(seg == NEXT) // Potential nextSeg pointer
 	{
-		Pthread_mutex_lock(&nLock);
+		//Pthread_mutex_lock(&nLock);
 		// This *should be* the ptr's AllocatedHeader
 		struct AllocatedHeader* allocd = ptr - sizeof(struct AllocatedHeader);
 		// Fail if this is not an allocatedHeader
@@ -258,11 +278,11 @@ int Mem_Free(void *ptr)
 		// Add this chunk of memory back into the freelist chain
 		int check = NextCoalesce(allocd, freedSpace);
 		assert(check == 0);
-		Pthread_mutex_unlock(&nLock); 
+		//Pthread_mutex_unlock(&nLock); 
 	}
 	else if(seg == SLAB) // Potential slabSeg pointer
 	{
-		Pthread_mutex_lock(&sLock);
+		//Pthread_mutex_lock(&sLock);
 		// slabHead can (WILL) move. Beware! (sHead can't)
 		void* sHead = slabSegFault - slabSegSize;
 		int offset = ptr - ((void*)sHead);
@@ -280,7 +300,7 @@ int Mem_Free(void *ptr)
 		}	
 		
 		assert(check == 0);
-		Pthread_mutex_unlock(&sLock);
+		//Pthread_mutex_unlock(&sLock);
 	}
 	else
 	{
@@ -288,6 +308,7 @@ int Mem_Free(void *ptr)
 		//printf("Unexpected Pointer: %p\n", ptr);
 		return -1;
 	}
+	Pthread_mutex_unlock(&gLock);
 
 	return 0;
 }
@@ -305,20 +326,14 @@ void Pthread_mutex_unlock(pthread_mutex_t* lock)
 }
 
 seg_t PointerCheck(void* ptr)
-{
-	// Head pointers can move, beware!
-	void* sHead	= slabSegFault - slabSegSize;
-	void* sEnd	= slabSegFault;
-	void* nHead	= nextSegFault - nextSegSize;
-	void* nEnd	= nextSegFault;
+{	
+	int ret = FAULT; // Default to failing
 	
-	int ret = FAULT;
-	
-	if(ptr < sHead || ptr >= nEnd)
+	if(ptr < sHead || ptr >= nextSegFault)
 		ret = FAULT;
-	else if (ptr >= sHead && ptr < sEnd)
+	else if (ptr >= sHead && ptr < slabSegFault)
 		ret = SLAB;
-	else if (ptr >= nHead && ptr < nEnd)
+	else if (ptr >= nHead && ptr < nextSegFault)
 		ret = NEXT;
 	else
 		assert(false); // Shouldn't be possible
@@ -532,7 +547,7 @@ int NextCoalesce(void* ptr, int freeBytes)
 
 void Mem_Dump()
 {	
-	//Dump(slabHead, "SLAB");
+	Dump(slabHead, "SLAB");
 	Dump(nextHead, "NEXT FIT");
 
 	return;
@@ -546,7 +561,7 @@ int Dump(struct FreeHeader* head, char* name)
 	
 	if(head == NULL) 
 	{
-		printf("\nNext Fit Segment Filled\n");
+		printf("\n%s Segment Filled\n", name);
 		return 0;
 	}
 	
