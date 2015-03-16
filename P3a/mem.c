@@ -103,7 +103,7 @@ void* Mem_Alloc(int size)
 	
 	// If allocd is still NULL here, we either didn't try SlabAlloc,
 	// or it failed and we should try NextAlloc. If it's not NULL,
-	// assume SlabAlloc was tried and did work;
+	// assume SlabAlloc was tried succesfully
 	if(allocd == NULL)
 	{
 		Pthread_mutex_lock(&nLock);
@@ -257,10 +257,8 @@ int Mem_Free(void *ptr)
 		
 		// Add this chunk of memory back into the freelist chain
 		int check = NextCoalesce(allocd, freedSpace);
-		
-		// Don't stay locked forever if coalescing failed
-		Pthread_mutex_unlock(&nLock); 
 		assert(check == 0);
+		Pthread_mutex_unlock(&nLock); 
 	}
 	else if(seg == SLAB) // Potential slabSeg pointer
 	{
@@ -289,8 +287,8 @@ int Mem_Free(void *ptr)
 			return -1;
 		}	
 		
-		Pthread_mutex_unlock(&sLock);
 		assert(check == 0);
+		Pthread_mutex_unlock(&sLock);
 	}
 	else
 	{
