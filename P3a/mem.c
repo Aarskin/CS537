@@ -61,10 +61,10 @@ void* Mem_Init(int sizeOfRegion, int slabSize)
 		initialized = true;
 				
 		// Slab segment init
-		int headerSize = sizeof(struct FreeHeader);
+		//int headerSize = sizeof(struct FreeHeader);
 		slabHead = (struct FreeHeader*)addr; // addr returned by mmap
 		slabSegFault = ((void*)slabHead) + slabSegSize;
-		void* finalSlabStart = ((void*)slabHead) + slabSegSize - headerSize;
+		void* finalSlabStart = ((void*)slabHead) + slabSegSize - specialSize;
 		
 		struct FreeHeader* tmp = slabHead; // i = 0
 		void* nextSlab;	
