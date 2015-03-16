@@ -132,20 +132,12 @@ struct AllocatedHeader* SlabAlloc(int size)
 	
 	// Wipe it clean
 	memset(allocd, 0, specialSize);
-	/*
-	int i;
-	for(i = 0; i < specialSize; i++)
-	{
-		*(int*)((void*)allocd+i) = 0; 
-	}
-	*/
 	
 	// Dont give out nextfit slabs!
 	if((void*)slabHead >= slabSegFault)
 		slabHead = NULL; // No slabs left
 	
 	return allocd;
-
 }
 
 // Size will be a multiple of 16
@@ -339,6 +331,12 @@ int SlabCoalesce(void* ptr)
 {
 	struct FreeHeader* freedSlab	= (struct FreeHeader*)ptr;
 	struct FreeHeader* tmp		= slabHead; // For walking
+	
+	if(slabHead == NULL) // Segment was full before the free was made
+	{
+		slabHead = (struct FreeHeader*)ptr;
+		slabHead->next = NULL; // This is the only one now
+	}
 	
 	// Check if the slab being freed is above anything currently free. We need
 	// to make sure that slabHead is always the first free slab
