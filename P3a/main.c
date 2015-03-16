@@ -10,36 +10,82 @@ void* allocd = NULL;
 
 int main(int argc, char* argv[])
 {
-   char *ptr = (char *)Mem_Init(4096, 64);
-   assert(ptr != NULL);
-   int i = 0;
-   char *nfPtr = NULL, *nfPtr1 = NULL, *nfPtr2 = NULL;
-   for(i=0; i<64; i++)
-   {
-	if(i == 13)
-	{
-		nfPtr1 = (char *)Mem_Alloc(32);
-		assert(nfPtr1 != NULL);
-	}
-	else if(i == 14)
-	{
-		nfPtr2 = (char *)Mem_Alloc(32);
-		assert(nfPtr2 != NULL);
-	}
-	else
-	{
-		nfPtr = (char *)Mem_Alloc(32);
-		assert(nfPtr != NULL);
-	}
-   }
-   assert(Mem_Alloc(32) == NULL);
-   assert(Mem_Free(nfPtr1) == 0);
-   assert(Mem_Free(nfPtr2) == 0);
-   
-   nfPtr = (char *)Mem_Alloc(55);
-   assert(nfPtr != NULL);
-   assert(nfPtr == nfPtr1);
-   exit(0);
+	int i;
+	int bytes = 8192;
+	int slabSize = 64;
+	
+	int slabSegSize = bytes/4;
+	int nextSegSize = (bytes/4)*3;
+	int requestSize = 32;
+	int sizeConsumed = requestSize + sizeof(struct FreeHeader);
+	
+	int expectedNRequests = nextSegSize/sizeConsumed;
+	int expectedSRequests = slabSegSize/slabSize; // slabSize is already byte aligned
+	
+	void* iPtr;
+	void* nPtr;
+	void* sPtr;
+	void* allocdNPtrs[expectedNRequests];
+	void* allocdSPtrs[expectedSRequests];
+	
+	// Initialize Memory
+	iPtr = Mem_Init(bytes, slabSize);
+	assert(iPtr!=NULL);
+
+	//void* slabStart = iPtr;
+	void* nextStart = iPtr + slabSegSize;
+	//void* slabFault = nextStart;
+	void* nextFault = nextStart + nextSegSize;
+	
+	struct AllocatedHeader* header;
+	void* regEnd;
+	
+	Mem_Dump();
+
+	// Fill up nextFit
+	printf("\nFilling next fit segment...");
+	for(i=0; i<expectedNRequests; i++)
+   	{
+	   	nPtr = Mem_Alloc(32);
+		assert(nPtr != NULL);
+		header = nPtr-sizeof(struct AllocatedHeader);
+		regEnd = ((void*)header) + sizeof(struct AllocatedHeader) + header->length;
+		assert(((void*)header) >= nextStart);
+		assert(regEnd <= nextFault);
+		allocdNPtrs[i]=nPtr;
+   	}
+   	assert(Mem_Alloc(32) == NULL);
+	printf("\t\t\t[PASS]\n");
+	
+	Mem_Dump();
+	
+	
+	// Empty nextFit
+	printf("Emptying full next fit segment...");
+	for(i=0; i<expectedNRequests; i++)
+   	{
+   		//printf("%d ", i);
+	   	assert(Mem_Free(allocdNPtrs[i])==0);
+   	}
+	assert(Mem_Free(allocdNPtrs[5])!=0);
+   	printf("\t\t[PASS]\n");  
+   	
+   	Mem_Dump(); 	
+   	
+	// Fill slab
+   	printf("Filling slab segment...");
+   	//printf("%d", expectedSRequests);
+   	for(i = 0; i<expectedSRequests; i++)
+   	{
+   		sPtr = Mem_Alloc(slabSize);
+   		assert(sPtr != NULL);
+   		allocdSPtrs[i]=sPtr;
+   	}
+   	assert(Mem_Alloc(slabSize)==NULL);
+   	printf("\t\t\t\t[PASS]\n");
+   	
+  	printf("\n\nAll tests passed!");
+  	exit(0);	
 }
 
 /*
