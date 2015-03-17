@@ -57,60 +57,63 @@ void* Mem_Init(int sizeOfRegion, int slabSize)
 						MAP_ANON | MAP_PRIVATE, -1, 0);
 			
 		if(addr == MAP_FAILED)
-			return NULL; // Something is wrong
-		initialized = true;
-				
-		// Slab segment init
-		//int headerSize = sizeof(struct FreeHeader);
-		slabHead = (struct FreeHeader*)addr; // addr returned by mmap
-		slabSegFault = ((void*)slabHead) + slabSegSize;
-		void* finalSlabStart = ((void*)slabHead) + slabSegSize - specialSize;
-		
-		struct FreeHeader* tmp = slabHead; // i = 0
-		void* nextSlab;	
-		
-		while((void*)tmp <= finalSlabStart)
+			addr = NULL; // Something is wrong
+		else
 		{
-			nextSlab = ((void*)tmp)+slabSize; // Address of nextSlab
+			initialized = true;
+				
+			// Slab segment init
+			//int headerSize = sizeof(struct FreeHeader);
+			slabHead = (struct FreeHeader*)addr; // addr returned by mmap
+			slabSegFault = ((void*)slabHead) + slabSegSize;
+			void* finalSlabStart = ((void*)slabHead) + slabSegSize - specialSize;
 		
-			//tmp->length = slabSize; // Redundant (special size)
-			
-			if((void*)tmp < finalSlabStart)
-				tmp->next	= nextSlab; // Room for more
-			else
+			struct FreeHeader* tmp = slabHead; // i = 0
+			void* nextSlab;	
+		
+			while((void*)tmp <= finalSlabStart)
 			{
-				tmp->next = NULL; // This is the last slab
-				
-				///// DEBUG USE ONLY
-				lastSlab = tmp;
-				////////////////////
-			}
+				nextSlab = ((void*)tmp)+slabSize; // Address of nextSlab
+		
+				//tmp->length = slabSize; // Redundant (special size)
 			
-			tmp = (struct FreeHeader*)nextSlab; // Advance
-		}
+				if((void*)tmp < finalSlabStart)
+					tmp->next	= nextSlab; // Room for more
+				else
+				{
+					tmp->next = NULL; // This is the last slab
 				
-		// Next fit segment init
-		nextHead			= (struct FreeHeader*)(addr + slabSegSize);
-		nextHead->length	= nextSegSize - sizeof(struct FreeHeader);
-		nextHead->next		= NULL;
+					///// DEBUG USE ONLY
+					lastSlab = tmp;
+					////////////////////
+				}
+			
+				tmp = (struct FreeHeader*)nextSlab; // Advance
+			}
+				
+			// Next fit segment init
+			nextHead			= (struct FreeHeader*)(addr + slabSegSize);
+			nextHead->length	= nextSegSize - sizeof(struct FreeHeader);
+			nextHead->next		= NULL;
 		
-		nextStart = nextHead; // First call to alloc starts here
+			nextStart = nextHead; // First call to alloc starts here
 		
-		nextSegFault = ((void*)nextHead) + nextSegSize;
+			nextSegFault = ((void*)nextHead) + nextSegSize;
 		
-		/*
-		// Initialize Locks!!
-		sLock = PTHREAD_MUTEX_INITIALIZER;
-		nLock = PTHREAD_MUTEX_INITIALIZER;
-		*/
+			/*
+			// Initialize Locks!!
+			sLock = PTHREAD_MUTEX_INITIALIZER;
+			nLock = PTHREAD_MUTEX_INITIALIZER;
+			*/
 		
-		// Head pointers can move, beware!
-		sHead= slabHead;
-		nHead= nextHead;
+			// Head pointers can move, beware!
+			sHead= slabHead;
+			nHead= nextHead;
+		}
 	}
 	Pthread_mutex_unlock(&gLock);
 	
-	return addr; // Null pointer if initialized already!
+	return addr; // Null pointer if initialized already (or error)!
 }
 
 void* Mem_Alloc(int size)
@@ -264,14 +267,17 @@ struct AllocatedHeader* NextAlloc(int size)
 
 int Mem_Free(void *ptr)
 {
+	int ret = 0; // Assume success
+	
 	Pthread_mutex_lock(&gLock);
 	seg_t seg = PointerCheck(ptr);
 	
-	if(ptr == NULL) return 0; // Do nothing, not even err
+	if(ptr == NULL) 
+		ret = 0; // Do nothing, not even err
 	else if(seg == FAULT)
 	{
 		fprintf(stderr, "SEGFAULT\n");
-		return -1;
+		ret = -1; // Redundant
 	}
 	else if(seg == NEXT) // Potential nextSeg pointer
 	{
@@ -280,14 +286,17 @@ int Mem_Free(void *ptr)
 		struct AllocatedHeader* allocd = ptr - sizeof(struct AllocatedHeader);
 		// Fail if this is not an allocatedHeader
 		if(!(allocd->magic == (void*)MAGIC))
-			return -1; // Can't free it! 
-		allocd->magic = 0; // Not allocated anymore
-		int freedSpace = allocd->length + sizeof(*allocd);
+			ret = -1; // Can't free it! 
+		else
+		{
+			allocd->magic = 0; // Not allocated anymore
+			int freedSpace = allocd->length + sizeof(*allocd);
 		
-		// Add this chunk of memory back into the freelist chain
-		int check = NextCoalesce(allocd, freedSpace);
-		assert(check == 0);
-		//Pthread_mutex_unlock(&nLock); 
+			// Add this chunk of memory back into the freelist chain
+			int check = NextCoalesce(allocd, freedSpace);
+			assert(check == 0);
+			//Pthread_mutex_unlock(&nLock); 
+		}
 	}
 	else if(seg == SLAB) // Potential slabSeg pointer
 	{
@@ -302,24 +311,24 @@ int Mem_Free(void *ptr)
 		if(offset % specialSize == 0)
 		{
 			check = SlabCoalesce(ptr); // Maintain the free chain		
+			assert(check == 0);
+			ret = 0;
 		}
 		else
 		{
-			return -1;
-		}	
+			ret = -1;
+		}
 		
-		assert(check == 0);
 		//Pthread_mutex_unlock(&sLock);
 	}
 	else
 	{
 		// The impossible case
-		//printf("Unexpected Pointer: %p\n", ptr);
-		return -1;
+		ret = -1;
 	}
 	Pthread_mutex_unlock(&gLock);
 
-	return 0;
+	return ret;
 }
 
 void Pthread_mutex_lock(pthread_mutex_t* lock)

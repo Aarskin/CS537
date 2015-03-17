@@ -43,7 +43,7 @@ int main(int argc, char* argv[])
 	struct AllocatedHeader* header;
 	void* regEnd;
 	
-	//Mem_Dump();
+	Mem_Dump();
 
 	// Fill Memory ////////////////////////////////////////////////////////////
 	printf("\nFilling next fit segment...");
@@ -81,7 +81,7 @@ int main(int argc, char* argv[])
 	
 	// Empty memory ///////////////////////////////////////////////////////////
 	printf("Emptying full next fit segment...");
-	for(i=0; i<expectedNRequests; i++)
+	for(i=expectedNRequests-1; i>=0; i--)
    	{
    		//printf("%d ", i);
 	   	assert(Mem_Free(allocdNPtrs[i])==0);
@@ -90,12 +90,14 @@ int main(int argc, char* argv[])
    	printf("\t\t[PASS]\n");  
    	
    	printf("Emptying full slab segment...");
-   	for(i=0; i<expectedSRequests; i++)
+   	for(i=expectedSRequests-1; i>=0; i--)
    	{
    		assert(Mem_Free(allocdSPtrs[i])==0);
    	}
 	//?assert(Mem_Free(allocdSPtrs[5])!=0);
-   	printf("\t\t\t[PASS]\n\n"); 
+   	printf("\t\t\t[PASS]\n\n");
+   	
+   	Mem_Dump();
    	
    	// Stress Free Segment Coalescing /////////////////////////////////////////
    	printf("Stressing Free Coalescing...\n\n");
