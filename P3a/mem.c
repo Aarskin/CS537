@@ -424,14 +424,16 @@ int NextCoalesce(void* ptr, int freeBytes)
 	// Make sure there is something to do, if nextHead is NULL, ptr is new head
 	if(nextHead == NULL)
 	{
+		assert(nextStart == NULL); // D###
+		
 		nextHead			= (struct FreeHeader*)ptr;
 		nextHead->length	= freeBytes - sizeof(*nextHead);
 		nextHead->next		= NULL; // All alone again
 		
-		nextStart = nextHead;
+		nextStart = nextHead; // Next fit also needs to start here
 		
 		return 0; // Nothing else to possibly coalesce with
-	}	
+	}
 	
 	struct FreeHeader* tmp = nextHead; // Start at the beginning
 	struct FreeHeader* lastBefore = NULL; // Last FreeHeader* before new mem
@@ -461,17 +463,19 @@ int NextCoalesce(void* ptr, int freeBytes)
 			
 			nextHead->length = newLength;
 			nextHead->next = oldHead->next;
+			
+			nextStart = nextHead; // Need to follow the head
 		}
 		else // They are NOT contiguous, point to your old self
 		{
 			nextHead->length = freeBytes - sizeof(*nextHead);
 			nextHead->next = oldHead;
-		}
+		}		 
 		
 		return 0; // No more contiguity possible
 	}
-	
-	while(tmp != NULL) // Walk along the freelist
+
+	while(tmp != NULL) // Walk along the freelist, tmp == nextHead
 	{
 		postTmp = ((void*)tmp)+sizeof(*tmp)+tmp->length;
 		
@@ -490,6 +494,14 @@ int NextCoalesce(void* ptr, int freeBytes)
 				// Add that free space to this one
 				tmp->length += fitCheck->length + sizeof(*fitCheck);
 				tmp->next = fitCheck->next; // Update linkage
+				
+				// If the fitCheck block is where the nextFit was planning
+				// on starting prior to this coalition (nextStart), then 
+				// after this coalition, nextStart would be pointing to the
+				// middle of a free region, rather than it's head! No good,
+				// we need it to point to the start of the region (tmp)
+				if(fitCheck == nextStart)					
+					nextStart = tmp;
 			}			
 			
 			return 0; // We're done. Can't possibly be more coalesced
@@ -501,8 +513,13 @@ int NextCoalesce(void* ptr, int freeBytes)
 			newFree->length	= freeBytes + sizeof(*tmp) + tmp->length;
 			newFree->next		= tmp->next;
 			
+			// If tmp is nextStart, we need to rewind nextStart to the head 
+			// of this newly free region for nextAlloc to function correctly
+			if(tmp == nextStart)
+				nextStart = newFree;
+			
 			// No need to perfect fit check here, because if the previous 
-			// FreeHeader was contiguous, it would have triggered if #1 on
+			// FreeHeader was contiguous, it would have triggered 'if #1' on
 			// the last pass of the loop and this would never have run.
 			return 0;
 		}
@@ -534,7 +551,7 @@ int NextCoalesce(void* ptr, int freeBytes)
 	
 	// This could happen when:
 	// A) We found the true lastBefore and firstAfter FreeHeaders, neither were
-	//		contiguous, so we need to link the newly freed space to both
+	//		contiguous, so we need to link the newly freed space to both (if#3)
 	if(lastBefore != NULL && firstAfter != NULL)
 	{
 		// Link old to new
@@ -560,7 +577,7 @@ int NextCoalesce(void* ptr, int freeBytes)
 		// Shouldn't happen
 		fprintf(stderr, "Coalesce failed\n");
 		return -1;
-	}
+	}	
 	
 	return 0;
 }

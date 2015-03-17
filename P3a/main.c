@@ -103,6 +103,7 @@ int main(int argc, char* argv[])
    	printf("Stressing Free Coalescing...\n\n");
    	for(i=0; i<expectedNRequests; i++) // Fill the next fit segment
    	{
+   		printf("%d \n", i);
 		nPtr = Mem_Alloc(requestSize);
 		
 		assert(nPtr != NULL);
