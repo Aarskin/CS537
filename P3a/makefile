@@ -12,5 +12,8 @@ thread:
 debug: 
 	gcc -g -o main main.c mem.c -Wall -Werror # DEBUG ONLY
 	
+next: 
+	gcc -g -o main verify_nextfit.c mem.c -Wall -Werror # DEBUG ONLY
+	
 clean:
 	rm -f libmem.so main mem.o *~

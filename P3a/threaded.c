@@ -1,8 +1,10 @@
 /* multi threaded alloc and free calls */
 #include <assert.h>
+#include <stdio.h>
 #include <stdlib.h>
 #include <pthread.h>
 #include "mymem.h"
+#include "else.h"
 
 #define MAX 100
 
@@ -10,7 +12,7 @@ char* buffer[MAX];
 int fill = 0;
 int use = 0;
 int count = 0;
-int loops = 129;
+int loops = 1000;
 
 void put(char *ptr)
 {
@@ -37,6 +39,10 @@ void* producer(void *arg)
 	for(i=0; i<loops; i++)
 	{
 		nfPtr = NULL;
+		pthread_mutex_lock(mutex);
+		printf("\nAllocattempt \nnextHead: %p\nnextStart: %p\n", nextHead, nextStart);
+		Mem_Dump();
+		pthread_mutex_unlock(mutex);
 		nfPtr = Mem_Alloc(32);
 		pthread_mutex_lock(mutex);
 		while (count == MAX)
@@ -59,7 +65,8 @@ void* consumer(void *arg)
 		while (count == 0)
 			pthread_cond_wait(full, mutex);
 		nfPtr = get();
-		assert(Mem_Free(nfPtr) == 0);
+		printf("\nFree: %p\nnextHead: %p\nnextStart: %p\n", nfPtr, nextHead, nextStart);
+		assert(Mem_Free(nfPtr) == 0);		
 		pthread_cond_signal(empty);
 		pthread_mutex_unlock(mutex);
 	}
@@ -82,20 +89,25 @@ void initSync()
 int main()
 {
 	assert(Mem_Init(8192,64) != NULL);
+	
+	printf("START------------------------------------------------------");
 
 	initSync();
 
-	pthread_t p1,/*p2,*/c1/*,c2*/;
+	pthread_t p1;
+	pthread_t p2;
+	pthread_t c1;
+	pthread_t c2;
 
 	pthread_create(&p1, NULL, producer, NULL);
-	//pthread_create(&p2, NULL, producer, NULL);
+	pthread_create(&p2, NULL, producer, NULL);
 	pthread_create(&c1, NULL, consumer, NULL);
-	//pthread_create(&c2, NULL, consumer, NULL);
+	pthread_create(&c2, NULL, consumer, NULL);
 	
 	pthread_join(p1, NULL);
-	//pthread_join(p2, NULL);
+	pthread_join(p2, NULL);
 	pthread_join(c1, NULL);
-	//pthread_join(c2, NULL);
+	pthread_join(c2, NULL);
 
 	//printf("SUCCESS!");
 	exit(0);	

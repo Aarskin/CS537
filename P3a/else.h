@@ -21,5 +21,8 @@ void Pthread_mutex_unlock(pthread_mutex_t*);
 
 struct FreeHeader* getLastSlab();
 
+struct FreeHeader* slabHead;	// Slab allocator freelist HEAD
+struct FreeHeader* nextHead;	// Nextfit allocator freelist HEAD
+struct FreeHeader* nextStart;	// For use by nextFit algorithm
 
 #endif//ELSE_H

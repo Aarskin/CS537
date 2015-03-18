@@ -144,8 +144,8 @@ int main(int argc, char* argv[])
    	assert(Mem_Free(allocdNPtrs[5])==0);
    	Mem_Dump();
    	
-   	assert(Mem_Alloc(requestSize)==0);
-   	assert(Mem_Alloc(requestSize)==0);
+   	assert(Mem_Alloc(requestSize)!=NULL);
+   	assert(Mem_Alloc(requestSize)!=NULL);
    	   	
   	printf("\nAll tests passed!\n");
   	exit(0);	

@@ -14,9 +14,9 @@ bool initialized = false;	// Flag for Mem_Init
 
 int slabSegSize;			// Size of slab segment in bytes
 int nextSegSize;			// Size of next segment in bytes
-struct FreeHeader* slabHead;	// Slab allocator freelist HEAD
-struct FreeHeader* nextHead;	// Nextfit allocator freelist HEAD
-struct FreeHeader* nextStart;	// For use by nextFit algorithm
+extern struct FreeHeader* slabHead;	// Slab allocator freelist HEAD
+extern struct FreeHeader* nextHead;	// Nextfit allocator freelist HEAD
+extern struct FreeHeader* nextStart;	// For use by nextFit algorithm
 void* slabSegFault;			// Address of the byte after the slab segment
 void* nextSegFault;			// Address of the byte after the next segment
 
@@ -177,6 +177,7 @@ struct AllocatedHeader* NextAlloc(int size)
 	struct AllocatedHeader* allocd = NULL;
 	struct FreeHeader* check = nextStart; // Temp, for iteration
 	struct FreeHeader* prev = NULL; // The most recently failed FreeHeader
+	bool found = false;
 	
 	if(nextHead == NULL) return allocd; // Is memory full?
 	
@@ -204,13 +205,28 @@ struct AllocatedHeader* NextAlloc(int size)
 				// Check is either the nextHead or not:
 				// If it is, we are 'advancing' the nextHead struct 
 				// (where it will be 'rewinded' during coalition)
-				if(check == nextStart /*defensive*/ && prev == NULL)
+				if(check == nextHead /*defensive*/ && prev == NULL)
 				{
 					nextHead = newBlock;
+					//assert(nextHead->next != (struct FreeHeader*)MAGIC);
 				}
 				// Prev was pointing to the block we just replaced with an
 				// AllocatedHeader (prev d.n.e. if nextHead). Point it to
 				// the newBlock instead.
+				else if(prev == NULL)
+				{
+					//assert(check == nextStart);
+					prev = nextHead;
+					
+					while(prev->next != check)
+					{
+						prev = prev->next; // Walk to the prev free block
+						//assert(prev != NULL);
+						//assert(prev < check);
+					}
+						
+					prev->next = newBlock;
+				}
 				else
 				{
 					prev->next = newBlock;
@@ -221,50 +237,75 @@ struct AllocatedHeader* NextAlloc(int size)
 			}
 			else // we filled this free block
 			{
-				// Loop around to the nextHEAD->next, make sure to set 
-				// the nextHead to NULL if it happened to be pointing to 
-				// nextStart (which is being released)
-				if(nextStart->next == NULL)
-				{
-					if(nextHead->next == nextStart)
-						nextHead->next = NULL; // New end
-				
-					// Will remain NULL if mem filled,
-					// loop around otherwise
-					nextStart = nextHead;			
-				}
-				else // simply advance the nextStart HEAD
-				{
-					// If we happened to be pointed at nextStart (which is
-					// disappearing) make sure we follow it (to the next
-					// available free block)
-					if(nextHead->next == nextStart)
-						nextHead->next = nextStart->next;
+				// Check is either nextHead, nextStart, both or neither
+				if(check == nextHead && check == nextStart)
+				{ // 1st check, it equals both, prev == NULL					
+					// Check is either the end of the list or not
+					if(check->next == NULL)
+					{
+						//assert(nextHead->next != (struct FreeHeader*)MAGIC);
+						nextHead = NULL; // we filled the last remaining block
+					}
+					else
+					{
+						//assert(nextHead->next != (struct FreeHeader*)MAGIC);
+						nextHead = check->next; // b/c we filled the head!
+					}
 						
-					nextStart = nextStart->next;
+					nextStart = nextHead;
 				}
+				else if(check == nextHead) // but not nextStart
+				{ // not 1st check, must have looped around already, prev != NULL
+					
+					// check->next cannot be NULL, because nextStart is
+					// somewhere after it in memory (if bug free)
+					//assert(nextHead->next != NULL);
+					
+					nextHead = check->next; // b/c we filled the head!
+					nextStart = nextHead;
+				}
+				else if(check == nextStart) // but not nextHead
+				{ // 1st check, prev == NULL
+					prev = nextHead;
+					
+					while(prev->next != check)
+					{
+						prev = prev->next; // Walk to the prev free block
+						//assert(prev != NULL);
+						//assert(prev < check);
+					}
+						
+					prev->next = check->next;
+					
+					if(check->next == NULL)
+						nextStart = nextHead; // Loop around
+					else
+						nextStart = check->next;
+				}
+				else // check is neither nextStart or nextHead
+				{ // not 1st check, prev != NULL
+					prev->next = check->next;
+					
+					if(check->next == NULL)
+						nextStart = nextHead; // Loop around
+					else
+						nextStart = check->next;
+				}
+				
+				//assert(nextHead->next != (struct FreeHeader*)MAGIC);
 			}
 			
 			// Overwrite check after you are done with it!
 			allocd->length = size;
 			allocd->magic	= (void*)MAGIC;
 						
-			if(allocd->length == specialSize)
+			if(allocd->length == specialSize) // Wipe
 			{
 				void* start = ((void*)allocd)+sizeof(*allocd);
 				memset(start, 0, specialSize);
-			/*
-				// Wipe the memory clean, starting here
-				int* start = ((void*)allocd+sizeof(*allocd));
-			 
-				int i;
-				for(i = 0; i < 16; i++)
-				{
-					*(start+i) = 0;
-				}
-				*/
 			}
 			
+			found = true;
 			break; // Stop looping, there was room in check.
 		}
 		else // There was no room in check
@@ -286,7 +327,7 @@ struct AllocatedHeader* NextAlloc(int size)
 
 int Mem_Free(void *ptr)
 {
-	int ret = 0; // Assume success
+	int ret = 0; // Assume success (danger)
 	
 	Pthread_mutex_lock(&gLock);
 	seg_t seg = PointerCheck(ptr);
@@ -483,7 +524,8 @@ int NextCoalesce(void* ptr, int freeBytes)
 			nextHead->length = newLength;
 			nextHead->next = oldHead->next;
 			
-			nextStart = nextHead; // Need to follow the head
+			if(nextStart == oldHead)
+				nextStart = nextHead; // Need to follow the head
 		}
 		else // They are NOT contiguous, point to your old self
 		{
@@ -491,6 +533,7 @@ int NextCoalesce(void* ptr, int freeBytes)
 			nextHead->next = oldHead;
 		}		 
 		
+		//assert(nextHead->next != (struct FreeHeader*)MAGIC);
 		return 0; // No more contiguity possible
 	}
 
