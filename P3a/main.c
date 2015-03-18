@@ -103,7 +103,7 @@ int main(int argc, char* argv[])
    	printf("Stressing Free Coalescing...\n\n");
    	for(i=0; i<expectedNRequests; i++) // Fill the next fit segment
    	{
-   		printf("%d \n", i);
+   		//printf("%d \n", i);
 		nPtr = Mem_Alloc(requestSize);
 		
 		assert(nPtr != NULL);
@@ -135,15 +135,18 @@ int main(int argc, char* argv[])
    	printf("[7]: %p\n", (void*)allocdNPtrs[7] - sizeof(struct AllocatedHeader));
    	//printf("[10]: %p\n\n", (void*)allocdNPtrs[10] - sizeof(struct AllocatedHeader));
    	
-   	assert(Mem_Free(allocdNPtrs[1])==0);
-   	Mem_Dump();
+   	//assert(Mem_Free(allocdNPtrs[1])==0);
+   	//Mem_Dump();
    	assert(Mem_Free(allocdNPtrs[7])==0);
-   	Mem_Dump();
-   	assert(Mem_Free(allocdNPtrs[6])==0);
+   	//Mem_Dump();
+   	//assert(Mem_Free(allocdNPtrs[6])==0);
    	Mem_Dump();
    	assert(Mem_Free(allocdNPtrs[5])==0);
-   	Mem_Dump();   	
+   	Mem_Dump();
    	
+   	assert(Mem_Alloc(requestSize)==0);
+   	assert(Mem_Alloc(requestSize)==0);
+   	   	
   	printf("\nAll tests passed!\n");
   	exit(0);	
 }
