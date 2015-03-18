@@ -10,7 +10,7 @@ thread:
 	gcc -lmem -L. -o main -g threaded.c -Wall -Werror -lpthread
 
 debug: 
-	gcc -g -o main *.c -Wall -Werror # DEBUG ONLY
+	gcc -g -o main main.c mem.c -Wall -Werror # DEBUG ONLY
 	
 clean:
 	rm -f libmem.so main mem.o *~
