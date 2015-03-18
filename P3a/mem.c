@@ -191,7 +191,7 @@ struct AllocatedHeader* NextAlloc(int size)
 			int remainingLength = check->length - size;
 			
 			// Juuust enough room for a FreeHeader
-			if(remainingLength >= 16)
+			if(remainingLength > 0)
 			{
 				// Create new FreeHeader 
 				struct FreeHeader* newBlock = nextFreeByte;
