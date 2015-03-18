@@ -222,6 +222,7 @@ struct AllocatedHeader* NextAlloc(int size)
 			}
 			else
 			{
+				// SUSPECT - What if nextHead is somewhere before check?
 				nextHead = NULL; // Mapped memory is full!
 				nextStart = NULL;
 			}
