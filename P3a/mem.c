@@ -222,7 +222,7 @@ struct AllocatedHeader* NextAlloc(int size)
 					{
 						prev = prev->next; // Walk to the prev free block
 						//assert(prev != NULL);
-						//assert(prev < check);
+						assert(prev <= check);
 					}
 						
 					prev->next = newBlock;
@@ -478,6 +478,23 @@ int SlabCoalesce(void* ptr)
 	return 0;
 }
 
+int InChain()
+{
+	struct FreeHeader* tmp = nextHead;
+	
+	while(tmp != NULL)
+	{
+		if(tmp == nextStart)
+			return 0;
+		else if(tmp > nextStart)
+			return -1;
+			
+		tmp = tmp->next;
+	}
+	
+	return 5;
+}
+
 // freeBytes already accounts for the AllocatedHeader that was freed
 int NextCoalesce(void* ptr, int freeBytes)
 {
@@ -492,6 +509,7 @@ int NextCoalesce(void* ptr, int freeBytes)
 		
 		nextStart = nextHead; // Next fit also needs to start here
 		
+		assert(InChain() == 0);
 		return 0; // Nothing else to possibly coalesce with
 	}
 	
@@ -506,6 +524,8 @@ int NextCoalesce(void* ptr, int freeBytes)
 	
 	struct FreeHeader* newFree = NULL; // Used when non-contiguous
 	struct FreeHeader* fitCheck = NULL; // Used in the perfect fit case
+	
+	struct FreeHeader* prev = NULL;
 	
 	// We're freeing something 'above' anything currently free, this region
 	// becomes the new nextHead with only post contiguity to consider (if there
@@ -533,7 +553,7 @@ int NextCoalesce(void* ptr, int freeBytes)
 			nextHead->next = oldHead;
 		}		 
 		
-		//assert(nextHead->next != (struct FreeHeader*)MAGIC);
+		assert(InChain() == 0);
 		return 0; // No more contiguity possible
 	}
 
@@ -566,14 +586,29 @@ int NextCoalesce(void* ptr, int freeBytes)
 					nextStart = tmp;
 			}			
 			
+			assert(InChain() == 0);
 			return 0; // We're done. Can't possibly be more coalesced
 		}
 		
 		if(((void*)tmp) == postFree) // Contiguous! (ptr before tmp)
 		{
 			newFree = (struct FreeHeader*)ptr; // Replace old AllocatedHeader
-			newFree->length	= freeBytes + sizeof(*tmp) + tmp->length;
+			newFree->length	= freeBytes /*+ sizeof(*tmp)*/ + tmp->length;
 			newFree->next		= tmp->next;
+			
+			// Update what was pointing to tmp
+			if(prev != NULL && prev->next == tmp)
+				prev->next = newFree;
+			else
+			{
+				prev = nextHead;
+				
+				while(prev->next != tmp)
+					prev = prev->next;
+				
+				assert(prev->next == tmp);
+				prev->next = newFree; // Point here instead of tmp
+			}
 			
 			// If tmp is nextStart, we need to rewind nextStart to the head 
 			// of this newly free region for nextAlloc to function correctly
@@ -583,6 +618,7 @@ int NextCoalesce(void* ptr, int freeBytes)
 			// No need to perfect fit check here, because if the previous 
 			// FreeHeader was contiguous, it would have triggered 'if #1' on
 			// the last pass of the loop and this would never have run.
+			assert(InChain() == 0);
 			return 0;
 		}
 		
@@ -606,6 +642,7 @@ int NextCoalesce(void* ptr, int freeBytes)
 		}
 		
 		// Increment to the next FreeHeader
+		prev = tmp;
 		tmp = tmp->next;
 	}
 	
@@ -641,6 +678,7 @@ int NextCoalesce(void* ptr, int freeBytes)
 		return -1;
 	}	
 	
+	assert(InChain() == 0);
 	return 0;
 }
 

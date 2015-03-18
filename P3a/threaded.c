@@ -109,6 +109,6 @@ int main()
 	pthread_join(c1, NULL);
 	pthread_join(c2, NULL);
 
-	//printf("SUCCESS!");
+	printf("\nSUCCESS!\n");
 	exit(0);	
 }
