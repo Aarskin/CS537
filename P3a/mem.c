@@ -221,19 +221,28 @@ struct AllocatedHeader* NextAlloc(int size)
 			}
 			else // we filled this free block
 			{
-				nextStart = nextStart->next;
-				
-				if(nextStart == NULL)
+				// Loop around to the nextHEAD->next, make sure to set 
+				// the nextHead to NULL if it happened to be pointing to 
+				// nextStart (which is being released)
+				if(nextStart->next == NULL)
 				{
+					if(nextHead->next == nextStart)
+						nextHead->next = NULL; // New end
+				
 					// Will remain NULL if mem filled,
 					// loop around otherwise
 					nextStart = nextHead;			
 				}
-			/*
-				// SUSPECT - What if nextHead is somewhere before check?
-				nextHead = NULL; // Mapped memory is full!
-				nextStart = NULL;
-			*/
+				else // simply advance the nextStart HEAD
+				{
+					// If we happened to be pointed at nextStart (which is
+					// disappearing) make sure we follow it (to the next
+					// available free block)
+					if(nextHead->next == nextStart)
+						nextHead->next = nextStart->next;
+						
+					nextStart = nextStart->next;
+				}
 			}
 			
 			// Overwrite check after you are done with it!
