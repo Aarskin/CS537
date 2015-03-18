@@ -190,7 +190,6 @@ struct AllocatedHeader* NextAlloc(int size)
 			void* nextFreeByte = ((void*)allocd) + sizeof(*allocd) + size;
 			int remainingLength = check->length - size;
 			
-			// Juuust enough room for a FreeHeader
 			if(remainingLength > 0)
 			{
 				// Create new FreeHeader 
@@ -220,11 +219,21 @@ struct AllocatedHeader* NextAlloc(int size)
 				// Either way, start at the new block on the next alloc
 				nextStart = newBlock;
 			}
-			else
+			else // we filled this free block
 			{
+				nextStart = nextStart->next;
+				
+				if(nextStart == NULL)
+				{
+					// Will remain NULL if mem filled,
+					// loop around otherwise
+					nextStart = nextHead;			
+				}
+			/*
 				// SUSPECT - What if nextHead is somewhere before check?
 				nextHead = NULL; // Mapped memory is full!
 				nextStart = NULL;
+			*/
 			}
 			
 			// Overwrite check after you are done with it!
