@@ -28,15 +28,6 @@ pthread_mutex_t sLock = PTHREAD_MUTEX_INITIALIZER;	// Slab seg lock
 pthread_mutex_t nLock = PTHREAD_MUTEX_INITIALIZER;	// Next seg lock
 pthread_mutex_t gLock = PTHREAD_MUTEX_INITIALIZER;	// Huge fat lock
 
-///// DEBUG ONLY
-struct FreeHeader* lastSlab;
-
-struct FreeHeader* getLastSlab()
-{
-	return lastSlab;
-}
-////////////////
-
 void* Mem_Init(int sizeOfRegion, int slabSize)
 {
 	void* addr = NULL;	// Starting address of newly mapped mem
@@ -82,10 +73,6 @@ void* Mem_Init(int sizeOfRegion, int slabSize)
 				else
 				{
 					tmp->next = NULL; // This is the last slab
-				
-					///// DEBUG USE ONLY
-					lastSlab = tmp;
-					////////////////////
 				}
 			
 				tmp = (struct FreeHeader*)nextSlab; // Advance
@@ -427,7 +414,7 @@ int SlabCoalesce(void* ptr)
 	
 	if(slabHead == NULL) // Segment was full before the free was made
 	{
-		slabHead = (struct FreeHeader*)ptr;
+		slabHead = freedSlab;
 		slabHead->next = NULL; // This is the only one now
 		
 		return 0; // Nothing else to possibly link to
@@ -435,10 +422,10 @@ int SlabCoalesce(void* ptr)
 	
 	// Check if the slab being freed is above anything currently free. We need
 	// to make sure that slabHead is always the first free slab
-	if(((void*)slabHead) >= ptr)
+	if(((void*)slabHead) > ptr)
 	{
 		struct FreeHeader* oldHead = slabHead;
-		slabHead = (struct FreeHeader*)ptr;
+		slabHead = freedSlab;
 		slabHead->next = oldHead;
 		
 		return 0; // Only link necessary
@@ -450,7 +437,7 @@ int SlabCoalesce(void* ptr)
 		// Is freedSlab already part of the freelist?
 		if(((void*)tmp->next) == ptr)
 		{
-			break; // Already in list (nothing to do)
+			return -1;
 		}		
 		
 		// If the tmp->next skips over freedSlab, we know whats up

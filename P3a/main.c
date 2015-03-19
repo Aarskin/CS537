@@ -33,7 +33,7 @@ int main(int argc, char* argv[])
 	iPtr = Mem_Init(bytes, slabSize);
 	assert(iPtr!=NULL);
 	
-	struct FreeHeader* lastSlab = getLastSlab();
+	//struct FreeHeader* lastSlab = getLastSlab();
 
 	//void* slabStart = iPtr;
 	void* nextStart = iPtr + slabSegSize;
@@ -52,7 +52,7 @@ int main(int argc, char* argv[])
    		//printf("%d ", i);
 	   	nPtr = Mem_Alloc(requestSize);
 	   	
-	   	assert(lastSlab->next == NULL);
+	   	//assert(lastSlab->next == NULL);
 		assert(nPtr != NULL);
 		
 		header = nPtr-sizeof(struct AllocatedHeader);
