@@ -2,7 +2,7 @@
 # user programs
 USER_PROGS := \
 	cat\
-	bounds\
+	bound\
 	echo\
 	forktest\
 	grep\
