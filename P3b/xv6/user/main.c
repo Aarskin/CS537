@@ -6,7 +6,7 @@ int
 main(int argc, char *argv[])
 {
    // Step 1
-   char* null = (char*)0x0;
+   int* null = (int*)0x0;
    printf(1, "Address 0x0: %d\n", *null);
    exit();
 }
