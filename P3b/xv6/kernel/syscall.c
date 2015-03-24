@@ -19,6 +19,10 @@ fetchint(struct proc *p, uint addr, int *ip)
 {
   if(addr >= p->sz || addr+4 > p->sz)
     return -1;
+    
+  if(p->pid > 2 && *(uint*)addr < 4096)
+    return -1;
+    
   *ip = *(int*)(addr);
   return 0;
 }
@@ -45,7 +49,8 @@ fetchstr(struct proc *p, uint addr, char **pp)
 int
 argint(int n, int *ip)
 {
-  return fetchint(proc, proc->tf->esp + 4 + 4*n, ip);
+  uint paramPtr = proc->tf->esp+4+4*n;
+  return fetchint(proc, paramPtr, ip);
 }
 
 // Fetch the nth word-sized system call argument as a pointer
