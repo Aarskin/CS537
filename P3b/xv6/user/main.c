@@ -5,6 +5,8 @@
 int
 main(int argc, char *argv[])
 {
-  printf(1, "Hello World!\n");
-  exit();
+   // Step 1
+   char* null = (char*)0x0;
+   printf(1, "Address 0x0: %d\n", *null);
+   exit();
 }
