@@ -4,6 +4,7 @@ USER_PROGS := \
 	cat\
 	bound\
 	bound3\
+	stack\
 	echo\
 	forktest\
 	grep\
