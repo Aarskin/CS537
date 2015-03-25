@@ -3,6 +3,7 @@
 USER_PROGS := \
 	cat\
 	bound\
+	bound3\
 	echo\
 	forktest\
 	grep\
