@@ -45,6 +45,19 @@ trap(struct trapframe *tf)
       exit();
     return;
   }
+  
+  if(tf->trapno == T_PGFLT)
+  {
+    uint ptrThatFaults = rcr2();
+    uint lowestGrowAddr = proc->st - PGSIZE;
+    
+    if(!(ptrThatFaults < lowestGrowAddr))
+    {
+      allocuvm(proc->pgdir, lowestGrowAddr, lowestGrowAddr + PGSIZE);
+      proc->st = lowestGrowAddr;
+      return; // Try again after growing the stack
+    }
+  }
 
   switch(tf->trapno){
   case T_IRQ0 + IRQ_TIMER:

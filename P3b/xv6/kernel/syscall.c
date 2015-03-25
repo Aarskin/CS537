@@ -73,6 +73,8 @@ argptr(int n, char **pp, int size)
   {
     if((uint)i < proc->st) // Above heap, below stack
       return -1;
+    if((uint)i+size > USERTOP) // Size of the ptr goes past USERTOP
+      return -1;
   }
     
   *pp = (char*)i;
