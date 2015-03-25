@@ -345,10 +345,13 @@ int
 sys_exec(void)
 {
   char *path, *argv[MAXARG];
-  int i;
+  int i; 
   uint uargv, uarg;
+  
+  uint a = argstr(0, &path);
+  uint b = argint(1, (int*)&uargv);
 
-  if(argstr(0, &path) < 0 || argint(1, (int*)&uargv) < 0){
+  if(a < 0 || b < 0){
     return -1;
   }
   memset(argv, 0, sizeof(argv));

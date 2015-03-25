@@ -48,13 +48,14 @@ exec(char *path, char **argv)
   iunlockput(ip);
   ip = 0;
 
-  // Allocate a one-page stack at the next page boundary
-  sz = PGROUNDUP(sz);
-  if((sz = allocuvm(pgdir, sz, sz + PGSIZE)) == 0)
+  // Allocate a one-page stack at the bottom of the address space
+  uint st = (uint)PGROUNDDOWN(USERTOP-1);
+  uint stackBottom; // Bottom of stack (highest addr)
+  if((stackBottom = allocuvm(pgdir, st, st + PGSIZE)) == 0)
     goto bad;
 
   // Push argument strings, prepare rest of stack in ustack.
-  sp = sz;
+  sp = stackBottom;
   for(argc = 0; argv[argc]; argc++) {
     if(argc >= MAXARG)
       goto bad;
@@ -84,6 +85,7 @@ exec(char *path, char **argv)
   oldpgdir = proc->pgdir;
   proc->pgdir = pgdir;
   proc->sz = sz;
+  proc->st = st; // Tracks top of stack (lowest addr)
   proc->tf->eip = elf.entry;  // main
   proc->tf->esp = sp;
   switchuvm(proc);
