@@ -51,11 +51,16 @@ trap(struct trapframe *tf)
     uint ptrThatFaults = rcr2();
     uint lowestGrowAddr = proc->st - PGSIZE;
     
-    if(!(ptrThatFaults < lowestGrowAddr))
+    // Make sure the page fault should grow the stack
+    if(ptrThatFaults > lowestGrowAddr)
     {
-      allocuvm(proc->pgdir, lowestGrowAddr, lowestGrowAddr + PGSIZE);
-      proc->st = lowestGrowAddr;
-      return; // Try again after growing the stack
+      // Make sure there's room for a guard page too
+      if(lowestGrowAddr - PGSIZE > proc->sz)
+      {
+        allocuvm(proc->pgdir, lowestGrowAddr, lowestGrowAddr + PGSIZE);
+        proc->st = lowestGrowAddr;
+        return; // Try again after growing the stack
+      }
     }
   }
 

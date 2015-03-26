@@ -109,7 +109,14 @@ growproc(int n)
   uint sz;
   
   sz = proc->sz;
-  if(n > 0){
+  if(n > 0)
+  {
+    uint growTo = sz + n;
+    uint guardLowAddr = proc->st - PGSIZE;
+    
+    if(growTo > guardLowAddr)
+      return -1; // Would allocate on guard page
+  
     if((sz = allocuvm(proc->pgdir, sz, sz + n)) == 0)
       return -1;
   } else if(n < 0){

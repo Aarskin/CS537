@@ -1,4 +1,4 @@
-/* stack should grow automatically on a page fault */
+  /* stack should grow automatically on a page fault */
 #include "types.h"
 #include "user.h"
 
@@ -13,10 +13,13 @@
 }
 
 void
-recurse(int n) 
+recurse(int n)
 {
   if(n > 0)
+  {
+    printf(1, "n = %d\n", n);
     recurse(n-1);
+  }
 }
 
 int
