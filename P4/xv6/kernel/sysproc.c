@@ -14,7 +14,19 @@ sys_fork(void)
 
 int sys_clone(void)
 {
-  return clone();
+  char* func;
+  char* args;
+  char* stack;
+  
+  // Parse parameters from stack
+  if(argptr(0, &func, 4) < 0)
+    return -1;    
+  if(argptr(1, &args, 4) < 0)
+    return -1;    
+  if(argptr(2, &stack, 4) < 0)
+    return -1;
+
+  return clone((void*)func, (void*)args, (void*)stack);
 }
 
 int

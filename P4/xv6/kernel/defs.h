@@ -98,7 +98,7 @@ int             pipewrite(struct pipe*, char*, int);
 struct proc*    copyproc(struct proc*);
 void            exit(void);
 int             fork(void);
-int             clone(void);
+int             clone(void(*)(void*), void*, void*);
 int             join(int);
 int             growproc(int);
 int             kill(int);
@@ -173,5 +173,6 @@ int             copyout(pde_t*, uint, void*, uint);
 
 // number of elements in fixed-size array
 #define NELEM(x) (sizeof(x)/sizeof((x)[0]))
+#define PAGESIZE 0x1000
 
 #endif // _DEFS_H_

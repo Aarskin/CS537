@@ -159,10 +159,18 @@ fork(void)
   return pid;
 }
 
-int clone(void)
-{
-  cprintf("clone unimplemented!");
-  return -1;
+int clone(void(*fcn)(void*), void* arg, void* stack)
+{  
+  int pid = -1; // Default to failing
+  uint st = (uint)stack;
+  pde_t* pgdir = proc->pgdir;
+  
+  // Allocate thread stack
+  st = allocuvm(pgdir, st, PAGESIZE);
+  if(st == 1)
+    return -1;
+    
+  return pid;
 }
 
 int join(int pid)
