@@ -159,6 +159,18 @@ fork(void)
   return pid;
 }
 
+int clone(void)
+{
+  cprintf("clone unimplemented!");
+  return -1;
+}
+
+int join(int pid)
+{
+  cprintf("join unimplemented!");
+  return -1;
+}
+
 // Exit the current process.  Does not return.
 // An exited process remains in the zombie state
 // until its parent calls wait() to find out it exited.

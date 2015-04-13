@@ -84,6 +84,8 @@ argstr(int n, char **pp)
 static int (*syscalls[])(void) = {
 [SYS_chdir]   sys_chdir,
 [SYS_close]   sys_close,
+[SYS_clone]   sys_clone,
+[SYS_join]    sys_join,
 [SYS_dup]     sys_dup,
 [SYS_exec]    sys_exec,
 [SYS_exit]    sys_exit,

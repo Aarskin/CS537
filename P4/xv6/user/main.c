@@ -4,6 +4,7 @@
 
 int main(int argc, char *argv[])
 {
-  printf(1, "Hello World!\n");
+  clone();  
+  join(5);
   exit();
 }

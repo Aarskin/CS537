@@ -12,6 +12,11 @@ sys_fork(void)
   return fork();
 }
 
+int sys_clone(void)
+{
+  return clone();
+}
+
 int
 sys_exit(void)
 {
@@ -23,6 +28,15 @@ int
 sys_wait(void)
 {
   return wait();
+}
+
+int sys_join(void)
+{
+  int pid;
+  
+  if(argint(0, &pid) < 0)
+    return -1;
+  return join(pid);
 }
 
 int

@@ -98,6 +98,8 @@ int             pipewrite(struct pipe*, char*, int);
 struct proc*    copyproc(struct proc*);
 void            exit(void);
 int             fork(void);
+int             clone(void);
+int             join(int);
 int             growproc(int);
 int             kill(int);
 void            pinit(void);
