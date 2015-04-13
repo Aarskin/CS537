@@ -6,6 +6,7 @@
 #include "x86.h"
 #include "traps.h"
 #include "spinlock.h"
+//#include "user.h"
 
 // Interrupt descriptor table (shared by all CPUs).
 struct gatedesc idt[256];
@@ -36,6 +37,9 @@ idtinit(void)
 void
 trap(struct trapframe *tf)
 {
+  struct proc* p; // debug only
+  p = proc;
+
   if(tf->trapno == T_SYSCALL){
     if(proc->killed)
       exit();

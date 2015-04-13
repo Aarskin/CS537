@@ -17,7 +17,7 @@ recurse(int n)
 {
   if(n > 0)
   {
-    printf(1, "n = %d\n", n);
+    //printf(1, "n = %d\n", n);
     recurse(n-1);
   }
 }
