@@ -190,12 +190,15 @@ int clone(void(*fcn)(void*), void* arg, void* stack)
     if(proc->ofile[i])
       thread->ofile[i] = filedup(proc->ofile[i]);  
   
+  
   // Mostly mimic the existing process (red flag area)
+  
   thread->sz = proc->sz;
+  
   thread->pgdir = proc->pgdir;
   thread->kstack  = proc->kstack;
-  thread->state   = RUNNABLE; // Ready to run
-  thread->pid     = 55555555; // Assign a PID?
+  //thread->state   = RUNNABLE; // Ready to run
+  //thread->pid     = 55555555; // Assign a PID?
   thread->parent  = parent;   // Assign the parent
   thread->tf      = proc->tf;
   thread->context = proc->context;
@@ -208,7 +211,7 @@ int clone(void(*fcn)(void*), void* arg, void* stack)
 
 int join(int pid)
 {
-  cprintf("join unimplemented!");
+  cprintf("join unimplemented!\n");
   return -1;
 }
 
@@ -495,5 +498,4 @@ procdump(void)
     cprintf("\n");
   }
 }
-
 
