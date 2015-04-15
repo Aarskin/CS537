@@ -159,59 +159,60 @@ fork(void)
   return pid;
 }
 
+// stack is the lowest memory addr of the allocated page
 int clone(void(*fcn)(void*), void* arg, void* stack)
 { 
   int i;
-  int pid = -1; // Default to failing
-  uint st = PGROUNDUP((uint)stack); // Page Aligned
-  pde_t* pgdir = proc->pgdir;
   struct proc* thread; // Essentially a process to the scheduler
   struct proc* parent;
   
   // Allocate process (from fork)
   if((thread = allocproc()) == 0)
     return -1;
-    
-  // Allocate page-size/aligned thread stack
-  st = allocuvm(pgdir, st, PAGESIZE);
-  if(st == 1)
-    return -1;
 
-  // Figure out who correct parent is
-  if(proc->parent->pid == 2) // "sh" pid
-    parent = proc;          // The proc that's cloning is the original process
-  else if(proc->parent->parent->pid == 2)
-    parent = proc->parent;// The proc that's cloning is already a child thread
-  else
-    panic("too many generations");
+  // Determine parent
+  if(proc->thread)
+    parent = proc->parent;  // Thread's got the right parent
+  else 
+    parent = proc;          // Proc is the right parent
     
   // Copy open files (from fork)
   for(i = 0; i < NOFILE; i++)
     if(proc->ofile[i])
-      thread->ofile[i] = filedup(proc->ofile[i]);  
+      thread->ofile[i] = filedup(proc->ofile[i]); 
+      
+  /* Set up user stack
+  -----------
+  <empty up>
+  -----------
+  argument   <--- stack
+  -----------
+  fake return
+  -----------
+  */
+  stack += PGSIZE-4; // Move stack pointer to the last word in the page
+  *((int*)stack) = 0xffffffff; // Fake return
+  stack -= 4; // Move up a word
+  *((int*)stack) = (int)arg; // The argument
+      
+  // Mimic the existing processes proc struct
+  thread->thread  = 1; // Duh
+  thread->sz      = proc->sz;
+  thread->pgdir   = copyuvm(proc->pgdir, proc->sz);
+  thread->parent  = parent; // Assign the parent
+  *thread->tf     = *proc->tf;
+  thread->chan    = 0; // indicates sleeping, which we are not
+  thread->cwd     = idup(proc->cwd); // (From fork)
+  thread->tf->eip = (int)fcn; // Set the entry point
+  thread->tf->esp = (int)stack; // Set the stack pointer
+  thread->state   = RUNNABLE; // Ready to run
   
-  
-  // Mostly mimic the existing process (red flag area)
-  
-  thread->sz = proc->sz;
-  
-  thread->pgdir = proc->pgdir;
-  thread->kstack  = proc->kstack;
-  //thread->state   = RUNNABLE; // Ready to run
-  //thread->pid     = 55555555; // Assign a PID?
-  thread->parent  = parent;   // Assign the parent
-  thread->tf      = proc->tf;
-  thread->context = proc->context;
-  thread->chan    = proc->chan;
-  thread->killed  = parent->killed;
-  thread->cwd     = idup(proc->cwd); // From fork
-    
-  return pid;
+  return thread->pid;
 }
 
 int join(int pid)
 {
-  cprintf("join unimplemented!\n");
+  
   return -1;
 }
 
@@ -271,7 +272,7 @@ wait(void)
     // Scan through table looking for zombie children.
     havekids = 0;
     for(p = ptable.proc; p < &ptable.proc[NPROC]; p++){
-      if(p->parent != proc)
+      if(p->parent != proc || p->thread)
         continue;
       havekids = 1;
       if(p->state == ZOMBIE){

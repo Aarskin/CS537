@@ -26,7 +26,8 @@ USER_LIBS := \
 	ulib.o\
 	usys.o\
 	printf.o\
-	umalloc.o
+	umalloc.o\
+	conc.o\
 
 USER_LIBS := $(addprefix user/, $(USER_LIBS))
 
