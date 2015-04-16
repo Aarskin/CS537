@@ -210,12 +210,6 @@ int clone(void(*fcn)(void*), void* arg, void* stack)
   return thread->pid;
 }
 
-int join(int pid)
-{
-  
-  return -1;
-}
-
 // Exit the current process.  Does not return.
 // An exited process remains in the zombie state
 // until its parent calls wait() to find out it exited.
@@ -301,6 +295,49 @@ wait(void)
     sleep(proc, &ptable.lock);  //DOC: wait-sleep
   }
 }
+
+
+int join(int pid)
+{  
+  struct proc* p;
+  int hasRoomie, tid; // treadID
+  
+  acquire(&ptable.lock);
+  
+  for(p = ptable.proc; p < &ptable.proc[NPROC]; p++){
+      if(p->parent != proc || !p->thread)
+        continue;
+      if(p->pid != pid && pid != -1)
+        continue;
+      hasRoomie = 1;
+      if(p->state == ZOMBIE){
+        // Found one that's already done.
+        tid = p->pid;
+        kfree(p->kstack);
+        p->kstack = 0;
+        //freevm(p->pgdir); probably not, because it's shared
+        p->state = UNUSED;
+        p->pid = 0;
+        p->parent = 0;
+        p->name[0] = 0;
+        p->killed = 0;
+        release(&ptable.lock);
+        return pid;
+      }
+    }
+  
+  // No point waiting if we don't have any children.
+  if(!hasRoomie || proc->killed){
+    release(&ptable.lock);
+    return -1;
+  }
+  
+  // Wait for children to exit.  (See wakeup1 call in proc_exit.)
+  sleep(proc, &ptable.lock);  //DOC: wait-sleep  
+  
+  return -1;
+}
+
 
 // Per-CPU process scheduler.
 // Each CPU calls scheduler() after setting itself up.
