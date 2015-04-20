@@ -203,7 +203,7 @@ int clone(void(*fcn)(void*), void* arg, void* stack)
   thread->thread  = 1; // Duh
   thread->sz      = proc->sz;
   thread->pgdir   = proc->pgdir;
-  thread->parent  = parent; // Assign the parentp 
+  thread->parent  = parent; // Assign the parent
   *thread->tf     = *proc->tf;
   thread->chan    = 0; // indicates sleeping, which we are not
   thread->cwd     = idup(proc->cwd); // (From fork)
@@ -237,11 +237,10 @@ exit(void)
     }
   }
 
-  if(!proc->thread)
-  {
-    iput(proc->cwd);
+
+  iput(proc->cwd); // decrement ref count
+  if(!proc->thread) // only og process can wipe this out
     proc->cwd = 0;
-  }
 
   acquire(&ptable.lock);
 
