@@ -9,16 +9,16 @@ void dummy(void* arg);
 int main(int argc, char *argv[])
 {
   int pid;
-  void* arg = (void*)5;
-  //void* stack = (void*)35;  
+  int arg = 5;
 
-  pid = thread_create(dummy, arg);
-  join(pid);
+  pid = thread_create(dummy, (void*)&arg);
+  printf(1, "MAIN CONTINUED. PID = %d\n", pid);
+  //join(pid);
   exit();
 }
 
 void dummy(void* arg)
 {
-  printf(1, "CLONE SUCCESS!");
-  return;
+  printf(1, "CLONE SUCCESS! ARG = %d\n", *(int*)arg);
+  exit();
 }

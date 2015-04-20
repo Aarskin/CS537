@@ -166,15 +166,18 @@ int clone(void(*fcn)(void*), void* arg, void* stack)
   struct proc* thread; // Essentially a process to the scheduler
   struct proc* parent;
   
+  // debug only
+  struct proc* test = proc;
+  
   // Allocate process (from fork)
   if((thread = allocproc()) == 0)
     return -1;
 
   // Determine parent
-  if(proc->thread)
-    parent = proc->parent;  // Thread's got the right parent
+  if(test/*proc*/->thread)
+    parent = proc->parent;  // This is a thread
   else 
-    parent = proc;          // Proc is the right parent
+    parent = proc;          // This is orig proc
     
   // Copy open files (from fork)
   for(i = 0; i < NOFILE; i++)
@@ -194,12 +197,13 @@ int clone(void(*fcn)(void*), void* arg, void* stack)
   *((int*)stack) = 0xffffffff; // Fake return
   stack -= 4; // Move up a word
   *((int*)stack) = (int)arg; // The argument
+  stack -= 4; // Move up a word
       
   // Mimic the existing processes proc struct
   thread->thread  = 1; // Duh
   thread->sz      = proc->sz;
-  thread->pgdir   = copyuvm(proc->pgdir, proc->sz);
-  thread->parent  = parent; // Assign the parent
+  thread->pgdir   = proc->pgdir;
+  thread->parent  = parent; // Assign the parentp 
   *thread->tf     = *proc->tf;
   thread->chan    = 0; // indicates sleeping, which we are not
   thread->cwd     = idup(proc->cwd); // (From fork)
@@ -219,7 +223,10 @@ exit(void)
   struct proc *p;
   int fd;
 
-  if(proc == initproc)
+  // debug only
+  struct proc* test = proc;
+
+  if(test/*proc*/ == initproc)
     panic("init exiting");
 
   // Close all open files.
@@ -230,8 +237,11 @@ exit(void)
     }
   }
 
-  iput(proc->cwd);
-  proc->cwd = 0;
+  if(!proc->thread)
+  {
+    iput(proc->cwd);
+    proc->cwd = 0;
+  }
 
   acquire(&ptable.lock);
 
