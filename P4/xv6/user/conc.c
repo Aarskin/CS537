@@ -109,3 +109,18 @@ int thread_join(int pid)
   
   return retpid; 
 }
+
+void lock_init(lock_t* lock)
+{
+
+}
+
+void lock_acquire(lock_t* lock)
+{
+
+}
+
+void lock_release(lock_t* lock)
+{
+
+}

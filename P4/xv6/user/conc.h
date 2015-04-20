@@ -3,22 +3,22 @@ int thread_create(void (*start_routine)(void*), void *arg);
 int thread_join(int pid);
 
 // Locks
-struct lock_t // typedef
+typedef struct
 {
   int locked;
-};
+} lock_t;
 
-void lock_init(struct lock_t* lock);
-void lock_acquire(struct lock_t* lock);
-void lock_release(struct lock_t* lock);
+void lock_init(lock_t* lock);
+void lock_acquire(lock_t* lock);
+void lock_release(lock_t* lock);
 
 // CV's
-struct cond_t // typedef
+typedef struct
 {
-  struct lock_t lock;
-};
+  lock_t lock;
+} cond_t;
 
-void cv_wait(struct cond_t*,struct lock_t*);
-void cv_signal(struct cond_t*);
+void cv_wait(cond_t*, lock_t*);
+void cv_signal(cond_t*);
 
 
