@@ -309,7 +309,7 @@ wait(void)
 int join(int pid)
 {  
   struct proc* p;
-  int hasRoomie, tid; // treadID
+  int hasRoomie, tid; // threadID
   
   acquire(&ptable.lock);
   
@@ -335,7 +335,7 @@ int join(int pid)
       }
     }
   
-  // No point waiting if we don't have any children.
+  // No point waiting if we don't have any roomie threads.
   if(!hasRoomie || proc->killed){
     release(&ptable.lock);
     return -1;
