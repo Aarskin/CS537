@@ -124,3 +124,13 @@ void lock_release(lock_t* lock)
 {
 
 }
+
+void cv_wait(cond_t*, lock_t*)
+{
+
+}
+
+void cv_signal(cond_t*)
+{
+
+}
