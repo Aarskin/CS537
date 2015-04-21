@@ -186,7 +186,7 @@ int clone(void(*fcn)(void*), void* arg, void* stack)
       
   /* Set up user stack
   -----------
-  <empty up>
+  <garbage up>
   -----------
   argument   <--- stack
   -----------
@@ -194,12 +194,12 @@ int clone(void(*fcn)(void*), void* arg, void* stack)
   -----------
   */
   stack += PGSIZE-4; // Move stack pointer to the last word in the page
-  *((int*)stack) = 0xffffffff; // Fake return
-  stack -= 4; // Move up a word
   *((int*)stack) = (int)arg; // The argument
   stack -= 4; // Move up a word
+  *((int*)stack) = 0xffffffff; // Fake return
+//  stack -= 4; // Move up a word
       
-  // Mimic the existing processes proc struct
+  // Mimic the existing process' proc struct
   thread->thread  = 1; // Duh
   thread->sz      = proc->sz;
   thread->pgdir   = proc->pgdir;
