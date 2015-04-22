@@ -197,7 +197,6 @@ int clone(void(*fcn)(void*), void* arg, void* stack)
   *((int*)stack) = (int)arg; // The argument
   stack -= 4; // Move up a word
   *((int*)stack) = 0xffffffff; // Fake return
-//  stack -= 4; // Move up a word
       
   // Mimic the existing process' proc struct
   thread->thread  = 1; // Duh
@@ -229,14 +228,16 @@ exit(void)
   if(test/*proc*/ == initproc)
     panic("init exiting");
 
-  // Close all open files.
-  for(fd = 0; fd < NOFILE; fd++){
-    if(proc->ofile[fd]){
-      fileclose(proc->ofile[fd]);
-      proc->ofile[fd] = 0;
+  // Close all open files. OG process only
+  if(!proc->thread)
+  {
+    for(fd = 0; fd < NOFILE; fd++){
+      if(proc->ofile[fd]){
+        fileclose(proc->ofile[fd]);
+        proc->ofile[fd] = 0;
+      }
     }
-  }
-
+  }  
 
   iput(proc->cwd); // decrement ref count
   if(!proc->thread) // only og process can wipe this out
@@ -244,15 +245,30 @@ exit(void)
 
   acquire(&ptable.lock);
 
-  // Parent might be sleeping in wait().
+  // Parent might be sleeping in wait()/join().
   wakeup1(proc->parent);
 
-  // Pass abandoned children to init.
-  for(p = ptable.proc; p < &ptable.proc[NPROC]; p++){
-    if(p->parent == proc){
-      p->parent = initproc;
-      if(p->state == ZOMBIE)
-        wakeup1(initproc);
+  // Pass abandoned children to init, kill and join if thread
+  for(p = ptable.proc; p < &ptable.proc[NPROC]; p++)
+  {
+    if(p->parent == proc)
+    {
+      if(p->thread)
+      {
+        // kill without rescanning the ptable/acquiring lock
+        p->killed = 1;
+        // Wake process from sleep if necessary.
+        if(p->state == SLEEPING)
+          p->state = RUNNABLE;
+          
+        //join(p->pid);
+      }
+      else
+      {
+        p->parent = initproc;
+        if(p->state == ZOMBIE)
+          wakeup1(initproc);
+      }
     }
   }
 
@@ -313,7 +329,11 @@ int join(int pid)
   
   acquire(&ptable.lock);
   
-  for(p = ptable.proc; p < &ptable.proc[NPROC]; p++){
+  while(1)
+  {
+    hasRoomie = 0;
+    
+    for(p = ptable.proc; p < &ptable.proc[NPROC]; p++){
       if(p->parent != proc || !p->thread)
         continue;
       if(p->pid != pid && pid != -1)
@@ -331,20 +351,19 @@ int join(int pid)
         p->name[0] = 0;
         p->killed = 0;
         release(&ptable.lock);
-        return pid;
+        return tid;
       }
     }
-  
-  // No point waiting if we don't have any roomie threads.
-  if(!hasRoomie || proc->killed){
-    release(&ptable.lock);
-    return -1;
-  }
-  
-  // Wait for children to exit.  (See wakeup1 call in proc_exit.)
-  sleep(proc, &ptable.lock);  //DOC: wait-sleep  
-  
-  return -1;
+    
+    // No point waiting if we don't have any roomie threads.
+    if(!hasRoomie || proc->killed){
+      release(&ptable.lock);
+      return -1;
+    }
+    
+    // Wait for children to exit.  (See wakeup1 call in proc_exit.)
+    sleep(proc, &ptable.lock);  //DOC: wait-sleep 
+  }    
 }
 
 

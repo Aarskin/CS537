@@ -23,6 +23,10 @@ initlock(struct spinlock *lk, char *name)
 void
 acquire(struct spinlock *lk)
 {
+  // debug only
+  struct proc* test = proc;
+  test = test;
+
   pushcli(); // disable interrupts to avoid deadlock.
   if(holding(lk))
     panic("acquire");

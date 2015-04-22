@@ -14,7 +14,7 @@ int main(int argc, char *argv[])
 
   pid = thread_create(dummy, (void*)&arg);
   printf(1, "MAIN CONTINUED. PID = %d\n", pid);
-  //join(pid);
+  join(pid);
   //while(global != 5);
   //sleep(100);
   exit();
