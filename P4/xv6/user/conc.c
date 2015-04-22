@@ -2,9 +2,11 @@
 #include "types.h"
 #include "user.h"
 #include "fcntl.h"
+#include "x86.h"
 
 #define PGSIZE 4096
 
+// Linked list of allocated thread stacks
 typedef struct threadstack
 {
   int pid;
@@ -65,20 +67,23 @@ int thread_join(int pid)
     return -1; // nothing to wait for!
   else
     tmp = first; // for iterations
-    
-  do // search for pid in our known list
+  
+  if(pid != -1)
   {
-    if(tmp->pid == pid)
+    do // search for pid in our known list
     {
-      threadExists = 1;
-      break;
+      if(tmp->pid == pid)
+      {
+        threadExists = 1;
+        break;
+      }
+      
+      // i++
+      preFound = tmp;
+      tmp = tmp->next;
     }
-    
-    // i++
-    preFound = tmp;
-    tmp = tmp->next;
+    while(tmp->next != NULL);
   }
-  while(tmp->next != NULL);
   
   if(threadExists || pid == -1)
   {
@@ -104,7 +109,7 @@ int thread_join(int pid)
       last = NULL;
     }
     
-    free(tmp);
+    free(tmp); // clean up
   }
   
   return retpid; 
@@ -118,24 +123,23 @@ void lock_init(lock_t* lock)
 
 void lock_acquire(lock_t* lock)
 {
-/*
-  int turn = fetchAndAdd(&lock->ticket);
-  
+  // Take a ticket
+  int turn = fetchAndAdd(&lock->ticket, 1);
+  // Wait until it's your turn (see lock_release)
   while(turn != lock->turn);
-  */
 }
 
 void lock_release(lock_t* lock)
 {
-  //fetchAndAdd(&lock->turn);
+  fetchAndAdd(&lock->turn, 1);
 }
 
 void cv_wait(cond_t* cond, lock_t* lock)
 {
-
+  
 }
 
 void cv_signal(cond_t* cond)
 {
-
+  
 }

@@ -5,24 +5,29 @@
 #include "conc.h"
 
 void dummy(void* arg);
-int global = 5;
 
 int main(int argc, char *argv[])
 {
-  int pid;
+  int pid1, pid2;
   int arg = 5;
+  lock_t lock;
 
-  pid = thread_create(dummy, (void*)&arg);
-  printf(1, "MAIN CONTINUED. PID = %d\n", pid);
-  join(pid);
-  //while(global != 5);
-  //sleep(100);
+  pid1 = thread_create(dummy, (void*)&arg);
+  pid2 = thread_create(dummy, (void*)&arg);
+  printf(1, "MAIN CONTINUED. PID = %d\n", pid1);
+  join(pid1);
+  printf(1, "MAIN CONTINUED. PID = %d\n", pid2);
+  join(pid2);
+  
+  lock_init(&lock);
+  lock_acquire(&lock);
+  lock_release(&lock);
+  
   exit();
 }
 
 void dummy(void* arg)
 {
   printf(1, "CLONE SUCCESS! ARG = %d\n", *(int*)arg);
-  //global = 3;
   exit();
 }
