@@ -11,4 +11,22 @@ typedef uint pde_t;
 #define NULL (0)
 #endif
 
+typedef struct
+{
+  int ticket;
+  int turn;
+} lock_t;
+
+typedef struct
+{
+  struct pidBlock* head;
+  int nwait;
+} cond_t;
+
+struct pidBlock
+{
+  int pid;
+  struct pidBlock* next;
+};
+
 #endif //_TYPES_H_

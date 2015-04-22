@@ -2,7 +2,6 @@
 #include "stat.h"
 #include "user.h"
 #include "thread.h"
-#include "conc.h"
 
 void dummy(void* arg);
 
@@ -11,6 +10,7 @@ int main(int argc, char *argv[])
   int pid1, pid2;
   int arg = 5;
   lock_t lock;
+  cond_t cond;
 
   pid1 = thread_create(dummy, (void*)&arg);
   pid2 = thread_create(dummy, (void*)&arg);
@@ -22,6 +22,9 @@ int main(int argc, char *argv[])
   lock_init(&lock);
   lock_acquire(&lock);
   lock_release(&lock);
+  
+  cv_signal(&cond);
+  cv_wait(&cond, &lock);
   
   exit();
 }

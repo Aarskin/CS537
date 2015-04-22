@@ -51,6 +51,18 @@ int sys_join(void)
   return join(pid);
 }
 
+int sys_cv_sleep(void)
+{
+  cprintf("CVSLEEP");
+  return -1;
+}
+
+int sys_cv_wake(void)
+{
+  cprintf("CVSLEEP");
+  return -1;
+}
+
 int
 sys_kill(void)
 {

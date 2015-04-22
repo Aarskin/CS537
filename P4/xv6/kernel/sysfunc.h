@@ -25,5 +25,7 @@ int sys_unlink(void);
 int sys_wait(void);
 int sys_write(void);
 int sys_uptime(void);
+int sys_cv_sleep(void);
+int sys_cv_wake(void);
 
 #endif // _SYSFUNC_H_
