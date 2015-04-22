@@ -5,7 +5,8 @@ int thread_join(int pid);
 // Locks
 typedef struct
 {
-  int locked;
+  int ticket;
+  int turn;
 } lock_t;
 
 void lock_init(lock_t* lock);

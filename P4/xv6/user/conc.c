@@ -112,25 +112,30 @@ int thread_join(int pid)
 
 void lock_init(lock_t* lock)
 {
-
+  lock->ticket = 0;
+  lock->turn   = 0;
 }
 
 void lock_acquire(lock_t* lock)
 {
-
+/*
+  int turn = fetchAndAdd(&lock->ticket);
+  
+  while(turn != lock->turn);
+  */
 }
 
 void lock_release(lock_t* lock)
 {
-
+  //fetchAndAdd(&lock->turn);
 }
 
-void cv_wait(cond_t*, lock_t*)
+void cv_wait(cond_t* cond, lock_t* lock)
 {
 
 }
 
-void cv_signal(cond_t*)
+void cv_signal(cond_t* cond)
 {
 
 }
