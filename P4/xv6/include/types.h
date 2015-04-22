@@ -20,7 +20,6 @@ typedef struct
 typedef struct
 {
   struct pidBlock* head;
-  int nwait;
 } cond_t;
 
 struct pidBlock

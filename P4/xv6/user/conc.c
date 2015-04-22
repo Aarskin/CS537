@@ -161,7 +161,8 @@ void cv_wait(cond_t* cond, lock_t* lock)
     
   cv_sleep(lock); // new syscall (need to write/ MUST RELEASE LOCK)
   
-  lock_acquire(lock);
+  lock_release(lock);
+  //lock_acquire(lock);
 }
 
 void cv_signal(cond_t* cond)

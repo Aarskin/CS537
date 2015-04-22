@@ -53,13 +53,13 @@ int sys_join(void)
 
 int sys_cv_sleep(void)
 {
-  cprintf("CVSLEEP");
+  cprintf("CVSLEEP\n");
   return -1;
 }
 
 int sys_cv_wake(void)
 {
-  cprintf("CVSLEEP");
+  cprintf("CVWAKE\n");
   return -1;
 }
 

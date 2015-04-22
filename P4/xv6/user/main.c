@@ -7,11 +7,12 @@ void dummy(void* arg);
 
 int main(int argc, char *argv[])
 {
-  int pid1, pid2;
-  int arg = 5;
+  //int pid1, pid2;
+  //int arg = 5;
   lock_t lock;
   cond_t cond;
 
+/*
   pid1 = thread_create(dummy, (void*)&arg);
   pid2 = thread_create(dummy, (void*)&arg);
   printf(1, "MAIN CONTINUED. PID = %d\n", pid1);
@@ -22,10 +23,15 @@ int main(int argc, char *argv[])
   lock_init(&lock);
   lock_acquire(&lock);
   lock_release(&lock);
+*/  
   
+  cv_wait(&cond, &lock);
+  cv_wait(&cond, &lock);
   cv_signal(&cond);
   cv_wait(&cond, &lock);
-  
+  cv_signal(&cond);
+  cv_signal(&cond);
+    
   exit();
 }
 
