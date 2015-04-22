@@ -138,6 +138,12 @@ xchg(volatile uint *addr, uint newval)
                "cc");
   return result;
 }
+/*
+static inline uint fetchAndAdd()
+{
+  
+}
+*/
 
 static inline void
 lcr0(uint val)
