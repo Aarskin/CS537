@@ -1,6 +1,8 @@
 
 # user programs
 USER_PROGS := \
+  badclone\
+  sbrkclone\
 	cat\
 	echo\
 	forktest\

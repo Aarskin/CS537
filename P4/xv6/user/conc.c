@@ -136,10 +136,48 @@ void lock_release(lock_t* lock)
 
 void cv_wait(cond_t* cond, lock_t* lock)
 {
+  struct pidBlock* block;
+  struct pidBlock* tmp;
   
+  // Create the block to place on the queue
+  block = malloc(sizeof(struct pidBlock));
+  block->pid = getpid();
+  block->next = NULL;
+  
+  // For iteration
+  tmp = cond->head;
+
+  lock_acquire(lock);
+  
+  // Add to Queue
+  if(cond->head == NULL) // only proc in queue
+    cond->head = block;
+  else // walk to the end of the chain and append
+  {
+    while(tmp->next != NULL)
+      tmp = tmp->next;
+      
+    tmp->next = block;
+  }
+    
+  cv_sleep(lock); // new syscall (need to write/ MUST RELEASE LOCK)
+  
+  lock_acquire(lock);
 }
 
 void cv_signal(cond_t* cond)
 {
+  struct pidBlock* newHead;
   
+  if(cond->head != NULL) // there are processes waiting on this condition
+  {
+    // wake the first one    
+    cv_wake(cond->head->pid); // new syscall (need to write)
+    
+    // Maintain queue
+    newHead = cond->head->next;
+    free(cond->head);
+    cond->head = newHead;
+  }
+  // That's it, nothing waiting? no problem
 }

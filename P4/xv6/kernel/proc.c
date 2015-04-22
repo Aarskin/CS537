@@ -117,6 +117,10 @@ growproc(int n)
       return -1;
   }
   proc->sz = sz;
+  
+  if(proc->thread) // reflect the changes in the parent as well
+    proc->parent->sz = sz;
+  
   switchuvm(proc);
   return 0;
 }
@@ -172,6 +176,9 @@ int clone(void(*fcn)(void*), void* arg, void* stack)
   // Allocate process (from fork)
   if((thread = allocproc()) == 0)
     return -1;
+    
+  if(!((int)stack + PGSIZE <= proc->sz))
+    return -1; // Not enough allocated space for stack
 
   // Determine parent
   if(test/*proc*/->thread)
@@ -183,20 +190,26 @@ int clone(void(*fcn)(void*), void* arg, void* stack)
   for(i = 0; i < NOFILE; i++)
     if(proc->ofile[i])
       thread->ofile[i] = filedup(proc->ofile[i]); 
-      
-  /* Set up user stack
-  -----------
-  <garbage up>
-  -----------
-  argument   <--- stack
-  -----------
-  fake return
-  -----------
-  */
-  stack += PGSIZE-4; // Move stack pointer to the last word in the page
-  *((int*)stack) = (int)arg; // The argument
-  stack -= 4; // Move up a word
-  *((int*)stack) = 0xffffffff; // Fake return
+    
+  if((int)stack % PGSIZE == 0) // page aligned, set it up
+  {
+    /* Set up user stack
+    -----------
+    <garbage up>
+    -----------
+    fake return <--- stack pointer
+    -----------
+    argument   
+    -----------
+    */
+    stack += PGSIZE-4; // Move stack pointer to the last word in the page
+    *((int*)stack) = (int)arg; // The argument
+    stack -= 4; // Move up a word
+    *((int*)stack) = 0xffffffff; // Fake return
+  }  
+  else
+    return -1; // stack pointer must be page aligned
+  
       
   // Mimic the existing process' proc struct
   thread->thread  = 1; // Duh
@@ -317,7 +330,7 @@ wait(void)
     }
 
     // Wait for children to exit.  (See wakeup1 call in proc_exit.)
-    sleep(proc, &ptable.lock);  //DOC: wait-sleep
+    sleep(proc, &ptable.lock);  //DOC: wait-sleepclo
   }
 }
 

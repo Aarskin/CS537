@@ -16,8 +16,15 @@ void lock_release(lock_t* lock);
 // CV's
 typedef struct
 {
-  lock_t lock;
+  struct pidBlock* head;
+  int nwait;
 } cond_t;
+
+struct pidBlock
+{
+  int pid;
+  struct pidBlock* next;
+}
 
 void cv_wait(cond_t*, lock_t*);
 void cv_signal(cond_t*);
