@@ -95,7 +95,13 @@ sys_sbrk(void)
 
   if(argint(0, &n) < 0)
     return -1;
+  
+  // Update thread sz just in case the parent has grown
+  if(proc->thread)
+    proc->sz = proc->parent->sz;
+      
   addr = proc->sz;
+  
   if(growproc(n) < 0)
     return -1;
   return addr;
