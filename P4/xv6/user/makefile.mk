@@ -3,6 +3,7 @@
 USER_PROGS := \
   badclone\
   sbrkclone\
+  join4\
 	cat\
 	echo\
 	forktest\

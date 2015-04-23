@@ -89,7 +89,10 @@ int thread_join(int pid)
     retpid = join(pid);
     
     if(retpid == -1)
+    {
       printf(1, "unexpected retpid from join");
+      return retpid;
+    }
     
     // free the memory after the wait
     free(tmp->space);
@@ -101,6 +104,10 @@ int thread_join(int pid)
         last = preFound;
         
       preFound->next = tmp->next;
+    }
+    else if(tmp->next != NULL) // prefound == NULL (joining on HEAD)
+    {
+      first = tmp->next;
     }
     else // linked list is empty again
     {

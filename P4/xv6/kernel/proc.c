@@ -6,7 +6,7 @@
 #include "proc.h"
 #include "spinlock.h"
 
-#define CVSLEEP 0x12345
+#define ANY -1
 
 struct {
   struct spinlock lock;
@@ -336,7 +336,6 @@ wait(void)
   }
 }
 
-
 int join(int pid)
 {  
   struct proc* p;
@@ -348,18 +347,42 @@ int join(int pid)
   {
     hasRoomie = 0;
     
-    for(p = ptable.proc; p < &ptable.proc[NPROC]; p++){
-      if(p->parent != proc || !p->thread)
-        continue;
-      if(p->pid != pid && pid != -1)
-        continue;
+    for(p = ptable.proc; p < &ptable.proc[NPROC]; p++)
+    {
+      if(!p->thread) // join is only interested in threads
+        continue;      
+      
+      // Figure out if there's a valid process to join on
+      if(!proc->thread) // check if p is a child thread of caller
+      {
+        if(p->parent != proc) // not a child
+          continue;
+        if(p->pid != pid && pid != ANY) // not the thread we are looking for
+          continue;
+      }
+      else // check if p is a child thread of the same parent as the caller
+      {
+        // found a potential roommate
+        // cannot find main process as roommate
+        if(p->parent == proc->parent)
+        {
+          if(p->pid != pid && pid != ANY)
+            continue;
+          // else we found a roommate, fall out
+        }
+        else // no match here
+          continue;          
+      }     
+        
       hasRoomie = 1;
-      if(p->state == ZOMBIE){
+      
+      // Clean up the dead roommate you found
+      if(p->state == ZOMBIE)
+      {
         // Found one that's already done.
         tid = p->pid;
         kfree(p->kstack);
         p->kstack = 0;
-        //freevm(p->pgdir); probably not, because it's shared
         p->state = UNUSED;
         p->pid = 0;
         p->parent = 0;
@@ -370,14 +393,17 @@ int join(int pid)
       }
     }
     
-    // No point waiting if we don't have any roomie threads.
+    // No point waiting if we don't have any roommate threads.
     if(!hasRoomie || proc->killed){
       release(&ptable.lock);
       return -1;
     }
     
-    // Wait for children to exit.  (See wakeup1 call in proc_exit.)
-    sleep(proc, &ptable.lock);  //DOC: wait-sleep 
+    // Found a living roommate, sleep until it's dead
+    if(proc->thread)
+      sleep(proc->parent, &ptable.lock);
+    else
+      sleep(proc, &ptable.lock);
   }    
 }
 
