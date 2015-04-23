@@ -6,6 +6,8 @@
 #include "proc.h"
 #include "spinlock.h"
 
+#define CVSLEEP 0x12345
+
 struct {
   struct spinlock lock;
   struct proc proc[NPROC];
@@ -379,6 +381,34 @@ int join(int pid)
   }    
 }
 
+void cv_sleep(lock_t* lock)
+{
+  acquire(&ptable.lock);
+  
+  proc->state = SLEEPING; // Go to sleep
+  fetchAndAdd(&lock->turn, 1); // Release lock
+  
+  sched(); // Jump to scheduler
+  
+  release(&ptable.lock);
+}
+
+void cv_wake(int pid)
+{
+  struct proc* p;
+
+  acquire(&ptable.lock);
+  
+  for(p = ptable.proc; p < &ptable.proc[NPROC]; p++)
+  {
+    if(p->pid != pid)
+      continue;
+      
+    p->state = RUNNABLE; // Wake up the thread!
+  }
+  
+  release(&ptable.lock);
+}
 
 // Per-CPU process scheduler.
 // Each CPU calls scheduler() after setting itself up.

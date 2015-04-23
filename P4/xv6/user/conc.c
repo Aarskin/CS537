@@ -126,6 +126,8 @@ void lock_acquire(lock_t* lock)
   int turn = fetchAndAdd(&lock->ticket, 1);
   // Wait until it's your turn (see lock_release)
   while(turn != lock->turn);
+  
+  lock->pid = getpid(); // Need to know who's holding the lock
 }
 
 void lock_release(lock_t* lock)
@@ -133,6 +135,7 @@ void lock_release(lock_t* lock)
   fetchAndAdd(&lock->turn, 1);
 }
 
+// lock must be held if this is being called
 void cv_wait(cond_t* cond, lock_t* lock)
 {
   struct pidBlock* block;
@@ -146,6 +149,7 @@ void cv_wait(cond_t* cond, lock_t* lock)
   // For iteration
   tmp = cond->head;
 
+// should already have lock coming into wait
   lock_acquire(lock);
   
   // Add to Queue
@@ -161,10 +165,11 @@ void cv_wait(cond_t* cond, lock_t* lock)
     
   cv_sleep(lock); // new syscall (need to write/ MUST RELEASE LOCK)
   
-  lock_release(lock);
+  //lock_release(lock);
   //lock_acquire(lock);
 }
 
+// for simplicity, always hold the lock when calling signal
 void cv_signal(cond_t* cond)
 {
   struct pidBlock* newHead;

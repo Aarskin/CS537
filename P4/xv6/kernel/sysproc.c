@@ -53,8 +53,16 @@ int sys_join(void)
 
 int sys_cv_sleep(void)
 {
-  cprintf("CVSLEEP\n");
-  return -1;
+  char* cond;
+  char* lock;
+
+  if(argptr(0, &cond, 4) < 0)
+    return -1;    
+  if(argptr(1, &lock, 4) < 0)
+    return -1;
+    
+  cv_sleep((lock_t*)lock);
+  return 0;
 }
 
 int sys_cv_wake(void)

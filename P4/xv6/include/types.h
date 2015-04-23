@@ -15,6 +15,7 @@ typedef struct
 {
   int ticket;
   int turn;
+  int pid;
 } lock_t;
 
 typedef struct

@@ -24,12 +24,10 @@ int main(int argc, char *argv[])
   lock_acquire(&lock);
   lock_release(&lock);
 */  
+  lock_init(&lock);  
+  
   
   cv_wait(&cond, &lock);
-  cv_wait(&cond, &lock);
-  cv_signal(&cond);
-  cv_wait(&cond, &lock);
-  cv_signal(&cond);
   cv_signal(&cond);
     
   exit();

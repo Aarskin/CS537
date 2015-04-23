@@ -111,6 +111,8 @@ void            userinit(void);
 int             wait(void);
 void            wakeup(void*);
 void            yield(void);
+void            cv_sleep(lock_t*);
+void            cv_wake(int);
 
 // swtch.S
 void            swtch(struct context**, struct context*);
