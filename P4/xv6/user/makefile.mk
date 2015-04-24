@@ -5,6 +5,7 @@ USER_PROGS := \
   sbrkclone\
   join4\
   cond\
+  race\
   size\
 	cat\
 	echo\
