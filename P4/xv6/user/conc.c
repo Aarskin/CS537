@@ -140,6 +140,7 @@ void lock_release(lock_t* lock)
 // lock must be held if this is being called
 void cv_wait(cond_t* cond, lock_t* lock)
 {
+/*
   struct pidBlock* block;
   struct pidBlock* tmp;
   
@@ -164,14 +165,13 @@ void cv_wait(cond_t* cond, lock_t* lock)
     
   cv_sleep(lock); // new syscall (need to write/ MUST RELEASE LOCK)
   lock_acquire(lock);
-  
-  //lock_release(lock);
-  //lock_acquire(lock);
+  */
 }
 
 // for simplicity, always hold the lock when calling signal
 void cv_signal(cond_t* cond)
 {
+/*
   struct pidBlock* newHead;
   
   if(cond->head != NULL) // there are processes waiting on this condition
@@ -185,4 +185,5 @@ void cv_signal(cond_t* cond)
     cond->head = newHead;
   }
   // That's it, nothing waiting? no problem
+  */
 }

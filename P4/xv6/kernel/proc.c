@@ -410,12 +410,8 @@ int join(int pid)
 void cv_sleep(lock_t* lock)
 {
   acquire(&ptable.lock);
-  
-  proc->state = SLEEPING; // Go to sleep
   fetchAndAdd(&lock->turn, 1); // Release lock
-  
-  sched(); // Jump to scheduler
-  
+  sleep(proc, &ptable.lock);  
   release(&ptable.lock);
 }
 
