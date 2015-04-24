@@ -94,25 +94,20 @@ int thread_join(int pid)
       return retpid;
     }
     
-    // free the memory after the wait
+    // free the memory after success
     free(tmp->space);
     
     // maintain meta list
-    if(preFound != NULL) // list not empty
+    if(tmp == first)
     {
-      if(tmp->next == NULL)
-        last = preFound;
-        
-      preFound->next = tmp->next;
+      first = tmp->next; // NULL if this is the only node
+      
+      if(tmp == last) // we're joining on the only known thread if true
+        last = NULL;
     }
-    else if(tmp->next != NULL) // prefound == NULL (joining on HEAD)
+    else
     {
-      first = tmp->next;
-    }
-    else // linked list is empty again
-    {
-      first = NULL;
-      last = NULL;
+    
     }
     
     free(tmp); // clean up
@@ -155,9 +150,6 @@ void cv_wait(cond_t* cond, lock_t* lock)
   
   // For iteration
   tmp = cond->head;
-
-// should already have lock coming into wait
-  lock_acquire(lock);
   
   // Add to Queue
   if(cond->head == NULL) // only proc in queue
@@ -171,6 +163,7 @@ void cv_wait(cond_t* cond, lock_t* lock)
   }
     
   cv_sleep(lock); // new syscall (need to write/ MUST RELEASE LOCK)
+  lock_acquire(lock);
   
   //lock_release(lock);
   //lock_acquire(lock);

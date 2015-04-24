@@ -4,6 +4,7 @@ USER_PROGS := \
   badclone\
   sbrkclone\
   join4\
+  cond\
   size\
 	cat\
 	echo\
