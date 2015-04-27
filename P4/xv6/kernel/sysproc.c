@@ -53,12 +53,9 @@ int sys_join(void)
 
 int sys_cv_sleep(void)
 {
-  char* cond;
   char* lock;
 
-  if(argptr(0, &cond, 4) < 0)
-    return -1;    
-  if(argptr(1, &lock, 4) < 0)
+  if(argptr(0, &lock, 4) < 0)
     return -1;
     
   cv_sleep((lock_t*)lock);
@@ -67,8 +64,13 @@ int sys_cv_sleep(void)
 
 int sys_cv_wake(void)
 {
-  cprintf("CVWAKE\n");
-  return -1;
+  int pid;
+  
+  if(argint(0, &pid) < 0)
+    return -1;
+    
+  cv_wake(pid);
+  return 0;
 }
 
 int
@@ -84,7 +86,7 @@ sys_kill(void)
 int
 sys_getpid(void)
 {
-  return proc->pid;
+  return proc->pid;  
 }
 
 int

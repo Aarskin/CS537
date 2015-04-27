@@ -100,14 +100,20 @@ int thread_join(int pid)
     // maintain meta list
     if(tmp == first)
     {
-      first = tmp->next; // NULL if this is the only node
+      first = tmp->next; // NULL if this is the only node, otherwise it maintains
       
       if(tmp == last) // we're joining on the only known thread if true
         last = NULL;
     }
+    else if(tmp == last)
+    {
+      //assert(prefound != NULL);
+      last = preFound;
+      last->next = NULL;
+    }
     else
     {
-    
+      preFound->next = tmp->next;
     }
     
     free(tmp); // clean up
@@ -140,7 +146,6 @@ void lock_release(lock_t* lock)
 // lock must be held if this is being called
 void cv_wait(cond_t* cond, lock_t* lock)
 {
-/*
   struct pidBlock* block;
   struct pidBlock* tmp;
   
@@ -155,23 +160,21 @@ void cv_wait(cond_t* cond, lock_t* lock)
   // Add to Queue
   if(cond->head == NULL) // only proc in queue
     cond->head = block;
-  else // walk to the end of the chain and append
+  else  
   {
-    while(tmp->next != NULL)
+    while(tmp->next != NULL) // walk to the end of the chain 
       tmp = tmp->next;
       
-    tmp->next = block;
+    tmp->next = block; // append
   }
     
-  cv_sleep(lock); // new syscall (need to write/ MUST RELEASE LOCK)
+  cv_sleep(lock); // new syscall (MUST RELEASE LOCK)
   lock_acquire(lock);
-  */
 }
 
 // for simplicity, always hold the lock when calling signal
 void cv_signal(cond_t* cond)
 {
-/*
   struct pidBlock* newHead;
   
   if(cond->head != NULL) // there are processes waiting on this condition
@@ -185,5 +188,4 @@ void cv_signal(cond_t* cond)
     cond->head = newHead;
   }
   // That's it, nothing waiting? no problem
-  */
 }

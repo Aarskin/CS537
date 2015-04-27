@@ -110,6 +110,7 @@ growproc(int n)
 {
   uint sz;
   
+  acquire(&ptable.lock);
   sz = proc->sz;
   if(n > 0){
     if((sz = allocuvm(proc->pgdir, sz, sz + n)) == 0)
@@ -122,6 +123,8 @@ growproc(int n)
   
   if(proc->thread) // reflect the changes in the parent as well
     proc->parent->sz = sz;
+    
+  release(&ptable.lock);
   
   switchuvm(proc);
   return 0;
@@ -407,30 +410,7 @@ int join(int pid)
   }    
 }
 
-void cv_sleep(lock_t* lock)
-{
-  acquire(&ptable.lock);
-  fetchAndAdd(&lock->turn, 1); // Release lock
-  sleep(proc, &ptable.lock);  
-  release(&ptable.lock);
-}
 
-void cv_wake(int pid)
-{
-  struct proc* p;
-
-  acquire(&ptable.lock);
-  
-  for(p = ptable.proc; p < &ptable.proc[NPROC]; p++)
-  {
-    if(p->pid != pid)
-      continue;
-      
-    p->state = RUNNABLE; // Wake up the thread!
-  }
-  
-  release(&ptable.lock);
-}
 
 // Per-CPU process scheduler.
 // Each CPU calls scheduler() after setting itself up.
@@ -550,6 +530,14 @@ sleep(void *chan, struct spinlock *lk)
   }
 }
 
+void cv_sleep(lock_t* lock)
+{
+  acquire(&ptable.lock);
+  fetchAndAdd(&lock->turn, 1); // Release lock
+  sleep(proc, &ptable.lock);  
+  release(&ptable.lock);
+}
+
 // Wake up all processes sleeping on chan.
 // The ptable lock must be held.
 static void
@@ -568,6 +556,24 @@ wakeup(void *chan)
 {
   acquire(&ptable.lock);
   wakeup1(chan);
+  release(&ptable.lock);
+}
+
+void cv_wake(int pid)
+{
+  struct proc* p;
+
+  acquire(&ptable.lock);
+  
+  for(p = ptable.proc; p < &ptable.proc[NPROC]; p++)
+  {
+    if(p->pid != pid)
+    {
+      wakeup1(proc);
+      break;
+    }
+  }
+  
   release(&ptable.lock);
 }
 
