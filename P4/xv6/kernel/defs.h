@@ -100,6 +100,7 @@ void            exit(void);
 int             fork(void);
 int             clone(void(*)(void*), void*, void*);
 int             join(int);
+int             join_logic(int);
 int             growproc(int);
 int             kill(int);
 void            pinit(void);

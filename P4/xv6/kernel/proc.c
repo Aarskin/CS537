@@ -245,6 +245,8 @@ exit(void)
 
   if(test/*proc*/ == initproc)
     panic("init exiting");
+    
+  acquire(&ptable.lock);
 
   // Close all open files. OG process only
   if(!proc->thread)
@@ -261,11 +263,6 @@ exit(void)
   if(!proc->thread) // only og process can wipe this out
     proc->cwd = 0;
 
-  acquire(&ptable.lock);
-
-  // Parent might be sleeping in wait()/join().
-  wakeup1(proc->parent);
-
   // Pass abandoned children to init, kill and join if thread
   for(p = ptable.proc; p < &ptable.proc[NPROC]; p++)
   {
@@ -273,13 +270,14 @@ exit(void)
     {
       if(p->thread)
       {
-        // kill without rescanning the ptable/acquiring lock
+        // kill
         p->killed = 1;
+        
         // Wake process from sleep if necessary.
         if(p->state == SLEEPING)
           p->state = RUNNABLE;
           
-        //join(p->pid);
+        join_logic(p->pid);
       }
       else
       {
@@ -289,6 +287,9 @@ exit(void)
       }
     }
   }
+  
+  // Parent might be sleeping in wait()/join().
+  wakeup1(proc->parent);
 
   // Jump into the scheduler, never to return.
   proc->state = ZOMBIE;
@@ -339,12 +340,10 @@ wait(void)
   }
 }
 
-int join(int pid)
+int join_logic(int pid)
 {  
   struct proc* p;
   int hasRoomie, tid; // threadID
-  
-  acquire(&ptable.lock);
   
   while(1)
   {
@@ -371,7 +370,7 @@ int join(int pid)
         {
           if(p->pid != pid && pid != ANY)
             continue;
-          // else we found a roommate, fall out
+          // else we found a roommate, fall out 
         }
         else // no match here
           continue;          
@@ -391,14 +390,13 @@ int join(int pid)
         p->parent = 0;
         p->name[0] = 0;
         p->killed = 0;
-        release(&ptable.lock);
         return tid;
       }
     }
     
     // No point waiting if we don't have any roommate threads.
-    if(!hasRoomie || proc->killed){
-      release(&ptable.lock);
+    if(!hasRoomie || proc->killed)
+    {
       return -1;
     }
     
@@ -407,10 +405,19 @@ int join(int pid)
       sleep(proc->parent, &ptable.lock);
     else
       sleep(proc, &ptable.lock);
-  }    
+  }
 }
 
-
+int join(int pid)
+{
+  int retpid;
+  
+  acquire(&ptable.lock);
+  retpid = join_logic(pid);
+  release(&ptable.lock);
+  
+  return retpid;
+}
 
 // Per-CPU process scheduler.
 // Each CPU calls scheduler() after setting itself up.
