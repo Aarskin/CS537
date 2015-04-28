@@ -448,6 +448,8 @@ scheduler(void)
       switchuvm(p);
       p->state = RUNNING;
       swtch(&cpu->scheduler, proc->context);
+      
+      // second swtch (by a process) brings us back here
       switchkvm();
 
       // Process is done running for now.
@@ -574,9 +576,9 @@ void cv_wake(int pid)
   
   for(p = ptable.proc; p < &ptable.proc[NPROC]; p++)
   {
-    if(p->pid != pid)
+    if(p->pid == pid)
     {
-      wakeup1(proc);
+      wakeup1(p);
       break;
     }
   }
