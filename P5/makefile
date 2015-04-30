@@ -1,6 +1,6 @@
 all:
-	gcc main.c -Wall -Werror -g -o lfsreader
+	gcc xfsck.c -Wall -Werror -g -o sf
 	
 clean:
-	rm lfsreader -f
+	rm sf -f
 	rm *~ -f # I hate these files
