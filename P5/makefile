@@ -4,3 +4,4 @@ all:
 clean:
 	rm sf -f
 	rm *~ -f # I hate these files
+	rm view.txt
