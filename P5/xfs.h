@@ -52,6 +52,14 @@ struct dirent {
   char name[DIRSIZ];
 };
 
-int fsck(struct superblock*, struct dinode*, char* bmap);
+// P5 defines below here
+
+struct fsck_status
+{
+	bool error_found;
+	bool error_corrected;
+};
+
+struct fsck_status* fsck(struct superblock*, struct dinode*, char* bmap);
 
 #endif // _FS_H_

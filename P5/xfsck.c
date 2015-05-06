@@ -1,16 +1,26 @@
 #include <stdio.h>
+#include <string.h>
 #include <stdbool.h>
 #include <stdlib.h>
 #include "xfs.h"
+
+struct cross_ref
+{
+	bool bitmap;
+	bool inoderef;
+};
+
+size_t bmk, superblocksize, dinodesize, direntsize;
 
 int main(int argc, char* argv[])
 {
 	FILE* file;
 	FILE* view;
 	char* buff;
+	bool OK = false;
 	struct superblock* super;
-	struct dinode* inodes;
-	size_t bmk, superblocksize, dinodesize, direntsize;
+	struct dinode* inodes;	
+	struct fsck_status* status;
 
 	superblocksize = sizeof(struct superblock);
 	dinodesize = sizeof(struct dinode);
@@ -50,15 +60,31 @@ int main(int argc, char* argv[])
 	bmk = fread(buff, BSIZE, 1, file);
 	if(bmk != 1) perror("BITMAP@");
 	
-	// Check it
-	fsck(super, inodes, buff);
+	// Check it until we don't find any errors
+	while(1)
+	{
+		status = fsck(super, inodes, buff);
+		
+		if(status->error_found && !status->error_corrected)
+			break; // Game over, man. Game over.
+		else if(!(status->error_found || status->error_corrected))
+		{
+			OK = true; // Don't do this anywhere but here
+			break;
+		}
+	}
 
 	// Free it
 	fclose (file);
 	free (buff);
 
-	// Done	
-	return printf("Finished\n");
+	// Done
+	printf("Finished: ");
+	
+	if(OK)
+		return printf("File System Clean\n");
+	else
+		return printf("File System Corrupted\n");
 }
 
 bool blockValid(int block, char* bmap)
@@ -81,14 +107,84 @@ bool blockValid(int block, char* bmap)
 	return false;
 }
 
-int fsck(struct superblock* super, struct dinode* inodes, char* bmap)
+struct fsck_status* fsck(struct superblock* super, struct dinode* inodes, char* bmap)
 {
-	int i = 0;
+	int i, j;
+	struct dinode* node;
+	struct cross_ref blockRefs[super->size];
+	struct fsck_status* status = malloc(sizeof(struct fsck_status));
 	
-	for(i = 0; i < 1024; i++)
+	// Initialize
+	status->error_found = false;
+	status->error_corrected = false;
+	
+	// Raw size computations (bytes)
+	uint fs_size = super->size*BSIZE;
+	uint blank_and_super_size = 2*BSIZE;
+	uint inode_size = super->ninodes*dinodesize;
+	uint bitmap_size = super->size/8;
+	uint data_size = super->nblocks*BSIZE;
+	uint all_together_now = blank_and_super_size + inode_size + bitmap_size + data_size;
+	
+	
+	// Make sure the superblock makes sense
+	if(fs_size < all_together_now)
 	{
-		printf("Block %d:\t%d\n", i, blockValid(i, bmap));
+		status->error_found = true;
+		return status;
 	}
+	
+	// Overhead for crossreferencing bitmap with inodes
+	for(i = 0; i < super->size; i++)
+	{
+		blockRefs[i].bitmap = blockValid(i, bmap); // What's the bitmap think now?
+		blockRefs[i].inoderef = false; // Initialize
+	}
+	
+	// "When you encounter a bad inode, the only thing you can do is clear it."
+	for(i = 0; i < super->ninodes; i++)
+	{
+		node = &inodes[i];
+		
+		// Size sanity check
+		if(node->size > data_size)
+		{
+			status->error_found = true;			
+			memset(&inodes[i], 0, sizeof(inodes[i])); // Clear it			
+			status->error_corrected = true;
+		}
+		
+		// Type sanity check
+		if(	node->type != 0 
+			&& node->type != 1 
+			&& node->type != 2 
+			&& node->type != 3)
+		{
+			status->error_found = true;			
+			memset(&inodes[i], 0, sizeof(inodes[i])); // Clear it			
+			status->error_corrected = true;
+		}
+		
+		// Link count sanity check
+		// ???
+		
+		printf("Data blocks for inode: %d\n", i);
+		
+		// Mark referenced blocks in cross_ref
+		for(j = 0; j < 13; j++)
+		{
+			printf("%d\t", node->addrs[j]);
+		}
+		
+		printf("\n");
+	}
+	
+	/* debug only
+	for(i = 0; i < super->size; i++)
+	{
+		printf("Block %d:\tBitmap:%d\tInodeRef:%d\n", i, blockRefs[i].bitmap, blockRefs[i].inoderef);
+	}
+	*/
 
-	return i;
+	return status;
 }
