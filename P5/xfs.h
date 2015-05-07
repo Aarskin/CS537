@@ -61,5 +61,6 @@ struct fsck_status
 };
 
 struct fsck_status* fsck(struct superblock*, struct dinode*, char* bmap);
+bool blockValid(int block, char* bmap);
 
 #endif // _FS_H_

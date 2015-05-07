@@ -15,21 +15,29 @@ size_t bmk, superblocksize, dinodesize, direntsize;
 int main(int argc, char* argv[])
 {
 	FILE* file;
-	FILE* view;
 	char* buff;
 	bool OK = false;
 	struct superblock* super;
 	struct dinode* inodes;	
 	struct fsck_status* status;
+	
+	if(argc != 2)
+	{
+		fprintf(stderr, "Usage: myfsck <image file>...\n");
+		exit(1);
+	}
 
 	superblocksize = sizeof(struct superblock);
 	dinodesize = sizeof(struct dinode);
 	direntsize = sizeof(struct dirent);
 	
 	// Open the image
-	file = fopen ("xfs.img", "r+");
-	view  = fopen ("view.txt", "w+");
-	if (file == NULL) perror(0);
+	file = fopen (argv[1], "r+");
+	if (file == NULL) 
+	{
+		perror("File Error");
+		exit(1);
+	}
 	
 	// Seek to the superblock (block 1)
 	fseek(file, BSIZE, SEEK_SET); 
@@ -42,7 +50,7 @@ int main(int argc, char* argv[])
 	super = (struct superblock*)buff;
 
 	// Seek to the first inode (block 2)
-	fseek(file, (IBLOCK(1)*BSIZE) + dinodesize, SEEK_SET); 
+	fseek(file, (IBLOCK(1)*BSIZE), SEEK_SET); 
 	
 	// Read in all the inodes
 	buff = malloc(dinodesize*super->ninodes);
@@ -51,13 +59,13 @@ int main(int argc, char* argv[])
 	if(bmk != super->ninodes) perror("DINODE@");
 	inodes = (struct dinode*)buff;
 	
-	// Seek to the bitmap (block 28)
+	// Seek to the bitmap (block ?)
 	fseek(file, 28*BSIZE, SEEK_SET);
 	
 	// Bitmap should be the block just after the inodes (SEEK_CUR)
-	buff = malloc(BSIZE);
+	buff = malloc(128);
 	if(buff == NULL) perror("BITMAP!");
-	bmk = fread(buff, BSIZE, 1, file);
+	bmk = fread(buff, 128, 1, file);
 	if(bmk != 1) perror("BITMAP@");
 	
 	// Check it until we don't find any errors
@@ -98,7 +106,7 @@ bool blockValid(int block, char* bmap)
 	// Determine the shift amount into the 8 bits. 7 because if the modulo is 0
 	// we want to mask off the MSB. E.g. block 16 should be the MSB of index 2,
 	// but the modulo is 0, which would give us the LSB
-	sa = 7 - (block % 8);
+	sa = (block % 8);
 	
 	// This will be 0 unless we masked off a 1 - indicating a valid block
 	if((bmap[index] & (1 << sa)) > 0)
@@ -107,9 +115,38 @@ bool blockValid(int block, char* bmap)
 	return false;
 }
 
-struct fsck_status* fsck(struct superblock* super, struct dinode* inodes, char* bmap)
+void bitmap_dump(char* bmap)
+{
+	int i;
+	
+	for(i = 0; i < 1024; i++)
+	{
+		printf("block %d:\t%d\n", i, blockValid(i, bmap));	
+	}
+}
+
+void inode_dump(struct dinode* inodes)
 {
 	int i, j;
+	struct dinode* node;
+	
+	for(i = 0; i < 200; i++)
+	{
+		node = &inodes[i];
+		printf("Data blocks for inode: %d\n", i);
+
+		for(j = 0; j < 13; j++)
+		{
+			printf("%d\t", node->addrs[j]);
+		}
+
+		printf("\n");
+	}
+}
+
+struct fsck_status* fsck(struct superblock* super, struct dinode* inodes, char* bmap)
+{
+	int i;
 	struct dinode* node;
 	struct cross_ref blockRefs[super->size];
 	struct fsck_status* status = malloc(sizeof(struct fsck_status));
@@ -167,16 +204,6 @@ struct fsck_status* fsck(struct superblock* super, struct dinode* inodes, char* 
 		
 		// Link count sanity check
 		// ???
-		
-		printf("Data blocks for inode: %d\n", i);
-		
-		// Mark referenced blocks in cross_ref
-		for(j = 0; j < 13; j++)
-		{
-			printf("%d\t", node->addrs[j]);
-		}
-		
-		printf("\n");
 	}
 	
 	/* debug only
