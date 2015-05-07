@@ -205,13 +205,6 @@ struct fsck_status* fsck(struct superblock* super, struct dinode* inodes, char* 
 		// Link count sanity check
 		// ???
 	}
-	
-	/* debug only
-	for(i = 0; i < super->size; i++)
-	{
-		printf("Block %d:\tBitmap:%d\tInodeRef:%d\n", i, blockRefs[i].bitmap, blockRefs[i].inoderef);
-	}
-	*/
 
 	return status;
 }
