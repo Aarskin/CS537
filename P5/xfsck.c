@@ -87,12 +87,12 @@ int main(int argc, char* argv[])
 	free (buff);
 
 	// Done
-	printf("Finished: ");
+	//printf("Finished: ");
 	
-	if(OK)
-		return printf("File System Clean\n");
-	else
-		return printf("File System Corrupted\n");
+	if(!OK)
+		printf("Error\n");
+
+	exit(0);		
 }
 
 bool blockValid(int block, char* bmap)
@@ -125,19 +125,28 @@ void bitmap_dump(char* bmap)
 	}
 }
 
-void inode_dump(struct dinode* inodes)
+void inodes_dump(struct dinode* inodes)
 {
 	int i, j;
 	struct dinode* node;
 	
 	for(i = 0; i < 200; i++)
 	{
+		printf("\n");
 		node = &inodes[i];
-		printf("Data blocks for inode: %d\n", i);
+		printf("INODE # %d\n", i);
 
+		if(node->type > 3 || node->type < 0)
+			printf("---------------------------------------------------------------------------------------------->");
+
+		printf("Type:\t%hd\n", node->type);
+		printf("Links:\t%hd\n", node->nlink);
+		printf("Size:\t%d\n", node->size);
+		printf("Blocks: | ");
+		
 		for(j = 0; j < 13; j++)
 		{
-			printf("%d\t", node->addrs[j]);
+			printf("%d | ", node->addrs[j]);
 		}
 
 		printf("\n");
@@ -147,9 +156,14 @@ void inode_dump(struct dinode* inodes)
 struct fsck_status* fsck(struct superblock* super, struct dinode* inodes, char* bmap)
 {
 	int i;
+	uint bitblocks, usedblocks;
 	struct dinode* node;
 	struct cross_ref blockRefs[super->size];
 	struct fsck_status* status = malloc(sizeof(struct fsck_status));
+	
+	// debug only
+	//bitmap_dump(bmap);
+	//inodes_dump(inodes);
 	
 	// Initialize
 	status->error_found = false;
@@ -164,12 +178,22 @@ struct fsck_status* fsck(struct superblock* super, struct dinode* inodes, char* 
 	uint all_together_now = blank_and_super_size + inode_size + bitmap_size + data_size;
 	
 	
-	// Make sure the superblock makes sense
+	// Make sure the superblock makes sense *************************************
 	if(fs_size < all_together_now)
 	{
 		status->error_found = true;
 		return status;
 	}
+	
+	bitblocks = super->size/(512*8) + 1;
+  	usedblocks = super->ninodes / IPB + 3 + bitblocks;
+  	
+  	if(super->nblocks + usedblocks != super->size)
+  	{
+  		status->error_found = true;
+  		return status;
+  	}
+  	// **************************************************************************
 	
 	// Overhead for crossreferencing bitmap with inodes
 	for(i = 0; i < super->size; i++)
