@@ -4,4 +4,3 @@ all:
 clean:
 	rm myfsck -f
 	rm *~ -f # I hate these files
-	rm view.txt

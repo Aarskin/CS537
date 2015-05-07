@@ -155,7 +155,9 @@ void inodes_dump(struct dinode* inodes)
 
 struct fsck_status* fsck(struct superblock* super, struct dinode* inodes, char* bmap)
 {
-	int i;
+	int i, j;
+	int refblocks = NDIRECT + 1;
+	uint blocknum;
 	uint bitblocks, usedblocks;
 	struct dinode* node;
 	struct cross_ref blockRefs[super->size];
@@ -211,7 +213,7 @@ struct fsck_status* fsck(struct superblock* super, struct dinode* inodes, char* 
 		if(node->size > data_size)
 		{
 			status->error_found = true;			
-			memset(&inodes[i], 0, sizeof(inodes[i])); // Clear it			
+			memset(&inodes[i], 0, sizeof(inodes[i])); // Clear it	
 			status->error_corrected = true;
 		}
 		
@@ -222,12 +224,29 @@ struct fsck_status* fsck(struct superblock* super, struct dinode* inodes, char* 
 			&& node->type != 3)
 		{
 			status->error_found = true;			
-			memset(&inodes[i], 0, sizeof(inodes[i])); // Clear it			
+			memset(&inodes[i], 0, sizeof(inodes[i])); // Clear it
 			status->error_corrected = true;
 		}
 		
 		// Link count sanity check
 		// ???
+		
+		// Cross-ref blocks used by this inode with blocks marked used by bitmap
+		for(j = 0; j < refblocks; j++)
+		{
+			blocknum = node->addrs[j];
+			
+			if(blocknum == 0) continue; // empty reference
+			
+			if(blocknum > super->size)
+			{
+				status->error_found = true;			
+				memset(&inodes[i], 0, sizeof(inodes[i])); // Clear it
+				status->error_corrected = true;
+			}				
+			
+			blockRefs[blocknum].inoderef = true;
+		} 
 	}
 
 	return status;
