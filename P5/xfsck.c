@@ -22,9 +22,18 @@ void bitmap_dump(char* bmap)
 	int i;
 	
 	for(i = 0; i < 1024; i++)
-	{
-		printf("block %d:\t%d\n", i, blockValid(i, bmap));	
+	{	
+		if(i!=0)
+		{
+			if(i%64 == 0)
+				printf("\n");
+			else if(i%8 == 0)
+				printf("\t");
+		}
+		
+		printf("%d", blockValid(i, bmap));		
 	}
+	printf("\n");
 }
 
 void inode_dump()
@@ -114,6 +123,7 @@ int main(int argc, char* argv[])
 	bmk = fread(buff, 128, 1, file);
 	if(bmk != 1) perror("BITMAP@");
 	
+	bitmap_dump(buff);
 	inode_dump();
 	
 	int i = 0;
@@ -134,9 +144,7 @@ int main(int argc, char* argv[])
 			OK = true; // Don't do this anywhere but here
 			break;
 		}
-	}
-	
-	
+	}	
 	
 	// debug only ///////////////////////////////////////////////////////////////
 	
@@ -152,6 +160,16 @@ int main(int argc, char* argv[])
 	if(bmk != super->ninodes) perror("DINODE@");
 	inodes = (struct dinode*)buff;
 	
+	// Seek to the bitmap (block 28)
+	fseek(file, 28*BSIZE, SEEK_SET);	
+	
+	// Bitmap should be the block just after the inodes (SEEK_CUR)
+	buff = malloc(128);
+	if(buff == NULL) perror("BITMAP!");
+	bmk = fread(buff, 128, 1, file);
+	if(bmk != 1) perror("BITMAP@");
+	
+	bitmap_dump(buff);
 	inode_dump();
 	
 	/////////////////////////////////////////////////////////////////////////////
@@ -171,22 +189,40 @@ int main(int argc, char* argv[])
 
 bool blockValid(int block, char* bmap)
 {
-	int index, sa;
-	
-	// Each index represents one char, == one byte, == 8 bits
-	// Need the to index to the proper set of 8 bits to check
-	index = block / 8;
-	
-	// Determine the shift amount into the 8 bits. 7 because if the modulo is 0
-	// we want to mask off the MSB. E.g. block 16 should be the MSB of index 2,
-	// but the modulo is 0, which would give us the LSB
-	sa = (block % 8);
+	int index = block / 8;
+	int sa = block % 8;
 	
 	// This will be 0 unless we masked off a 1 - indicating a valid block
 	if((bmap[index] & (1 << sa)) > 0)
 		return true;
 	
 	return false;
+}
+
+void bitMark(bool valid, int block, char* bmap)
+{
+	size_t pos = ftell(file); // save
+	int bit = block % BSIZE; // index into block bits
+	int index = bit / 8;
+	int sa = bit % 8;
+	
+	size_t loc = BBLOCK(block, super->ninodes)*BSIZE+index*sizeof(char); 
+	char* new = malloc(sizeof(char));
+	
+	// Build mask
+	if(valid)
+	{
+		*new = 1<<sa;
+	}
+	else
+	{
+		*new = ~(1<<sa);
+	}	
+		
+	fseek(file, loc, SEEK_SET); // go to the block
+	fwrite(new, sizeof(char), 1, file); // Write it back
+	
+	fseek(file, pos, SEEK_SET);
 }
 
 // Write a fix to the specified block number
@@ -198,7 +234,7 @@ void write_fix(int block_num, int offset, char* fix, size_t size)
 	fseek(file, loc, SEEK_SET);
 	assert(fwrite(fix, size, 1, file) == 1);
 	
-	printf("wrote: %s\t to %zd\n", fix, loc);
+	printf("write_fix: <%s>\t to %zd\t%zd byte(s)\n", fix, loc, size);
 	
 	fseek(file, pos, SEEK_SET);
 }
@@ -270,6 +306,16 @@ void directoryCheck(struct dinode* inode, int inum)
 
 struct fsck_status* fsck(struct superblock* super, struct dinode* inodes, char* bmap)
 {
+	bitMark(false, 13, bmap);
+	bitMark(false, 0, bmap);
+	bitMark(false, 55, bmap);
+
+
+
+
+
+
+
 	int i, j;
 	int refblocks = NDIRECT + 1;
 	uint blocknum;
