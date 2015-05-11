@@ -10,7 +10,7 @@ struct cross_ref
 	bool inoderef;
 };
 
-size_t bmk, superblocksize, dinodesize, direntsize;
+size_t bmk, superblocksize, dinodesize, direntsize, expected;
 
 int main(int argc, char* argv[])
 {
@@ -38,6 +38,11 @@ int main(int argc, char* argv[])
 		perror("File Error");
 		exit(1);
 	}
+	
+	// How big do we expect this image to be?
+	fseek(file, 0, SEEK_END);
+	expected = ftell(file);
+	expected = expected/BSIZE;
 	
 	// Seek to the superblock (block 1)
 	fseek(file, BSIZE, SEEK_SET); 
