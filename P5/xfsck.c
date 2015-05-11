@@ -10,11 +10,11 @@ struct cross_ref
 	bool inoderef;
 };
 
+FILE* file;
 size_t bmk, superblocksize, dinodesize, direntsize, expected;
 
 int main(int argc, char* argv[])
 {
-	FILE* file;
 	char* buff;
 	bool OK = false;
 	struct superblock* super;
@@ -158,6 +158,15 @@ void inodes_dump(struct dinode* inodes)
 	}
 }
 
+// Write a fix to the specified block number
+void write_fix(int block_num, char* fix)
+{	
+	size_t pos = ftell(file); // save
+	fseek(file, block_num*BSIZE, SEEK_SET);
+	fwrite(fix, sizeof(fix), 1, file);
+	fseek(file, pos, SEEK_SET);
+}
+
 struct fsck_status* fsck(struct superblock* super, struct dinode* inodes, char* bmap)
 {
 	int i, j;
@@ -194,6 +203,17 @@ struct fsck_status* fsck(struct superblock* super, struct dinode* inodes, char* 
 	
 	bitblocks = super->size/(512*8) + 1;
   	usedblocks = super->ninodes / IPB + 3 + bitblocks;
+  	
+  	if(super->size != expected)
+  	{
+  		status->error_found = true;
+  		char* fix = malloc(superblocksize);
+  		((struct superblock*)fix)->size = expected;
+  		((struct superblock*)fix)->ninodes = super->ninodes;
+  		((struct superblock*)fix)->nblocks = super->nblocks;
+  		write_fix(1, fix);
+  		status->error_corrected = true;
+  	}
   	
   	if(super->nblocks + usedblocks != super->size)
   	{
