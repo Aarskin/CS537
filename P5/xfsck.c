@@ -2,7 +2,13 @@
 #include <string.h>
 #include <stdbool.h>
 #include <stdlib.h>
+#include <assert.h>
 #include "xfs.h"
+
+FILE* file;
+size_t bmk, superblocksize, dinodesize, direntsize, expected;
+struct superblock* super;
+struct dinode* inodes;
 
 struct cross_ref
 {
@@ -10,15 +16,48 @@ struct cross_ref
 	bool inoderef;
 };
 
-FILE* file;
-size_t bmk, superblocksize, dinodesize, direntsize, expected;
+void bitmap_dump(char* bmap)
+{
+	int i;
+	
+	for(i = 0; i < 1024; i++)
+	{
+		printf("block %d:\t%d\n", i, blockValid(i, bmap));	
+	}
+}
+
+void inode_dump()
+{
+	int i, j;
+	struct dinode* node;
+	
+	for(i = 0; i < 200; i++)
+	{
+		printf("\n");
+		node = &inodes[i];
+		printf("INODE # %d\n", i);
+
+		if(node->type > 3 || node->type < 0)
+			printf("---------------------------------------------------------------------------------------------->");
+
+		printf("Type:\t%hd\n", node->type);
+		printf("Links:\t%hd\n", node->nlink);
+		printf("Size:\t%d\n", node->size);
+		printf("Blocks: | ");
+		
+		for(j = 0; j < 13; j++)
+		{
+			printf("%d | ", node->addrs[j]);
+		}
+
+		printf("\n");
+	}
+}
 
 int main(int argc, char* argv[])
 {
 	char* buff;
-	bool OK = false;
-	struct superblock* super;
-	struct dinode* inodes;	
+	bool OK = false;	
 	struct fsck_status* status;
 	
 	if(argc != 2)
@@ -73,6 +112,8 @@ int main(int argc, char* argv[])
 	bmk = fread(buff, 128, 1, file);
 	if(bmk != 1) perror("BITMAP@");
 	
+	inode_dump();
+	
 	// Check it until we don't find any errors
 	while(1)
 	{
@@ -120,50 +161,52 @@ bool blockValid(int block, char* bmap)
 	return false;
 }
 
-void bitmap_dump(char* bmap)
-{
-	int i;
-	
-	for(i = 0; i < 1024; i++)
-	{
-		printf("block %d:\t%d\n", i, blockValid(i, bmap));	
-	}
-}
-
-void inodes_dump(struct dinode* inodes)
-{
-	int i, j;
-	struct dinode* node;
-	
-	for(i = 0; i < 200; i++)
-	{
-		printf("\n");
-		node = &inodes[i];
-		printf("INODE # %d\n", i);
-
-		if(node->type > 3 || node->type < 0)
-			printf("---------------------------------------------------------------------------------------------->");
-
-		printf("Type:\t%hd\n", node->type);
-		printf("Links:\t%hd\n", node->nlink);
-		printf("Size:\t%d\n", node->size);
-		printf("Blocks: | ");
-		
-		for(j = 0; j < 13; j++)
-		{
-			printf("%d | ", node->addrs[j]);
-		}
-
-		printf("\n");
-	}
-}
-
 // Write a fix to the specified block number
 void write_fix(int block_num, char* fix)
 {	
 	size_t pos = ftell(file); // save
 	fseek(file, block_num*BSIZE, SEEK_SET);
 	fwrite(fix, sizeof(fix), 1, file);
+	fseek(file, pos, SEEK_SET);
+}
+
+void directoryCheck(struct dinode* inode)
+{
+	int i, j, block;
+	size_t pos = ftell(file); // save
+	size_t direntsize = sizeof(struct dirent);
+	int numentries = inode->size/direntsize;
+	char* dirbuff = malloc(direntsize*numentries);
+	struct dirent* head;
+	struct dirent* dir;
+	
+	// Loop over the data blocks (dirents)
+	for(i = 0; i < NDIRECT+1; i++)
+	{
+		block = inode->addrs[i];
+		
+		if(block == 0)
+			continue;
+		
+		// Seek to the array of DIRENT structs
+		assert(fseek(file, block*BSIZE, SEEK_SET) == 0);
+		assert(fread(dirbuff, direntsize, numentries, file) == numentries);
+		head = (struct dirent*)dirbuff;
+		
+		// Check non-zero entries in the directory
+		for(j = 0; j < numentries; j++)
+		{
+			dir = &head[j];
+			
+			if(dir->inum == 0)
+				continue;
+				
+			printf("%d: ", dir->inum);
+			printf("%s\n", dir->name);
+		}
+	}
+	
+	// Transparent, put the file pos back where you found it
 	fseek(file, pos, SEEK_SET);
 }
 
@@ -252,6 +295,8 @@ struct fsck_status* fsck(struct superblock* super, struct dinode* inodes, char* 
 			memset(&inodes[i], 0, sizeof(inodes[i])); // Clear it
 			status->error_corrected = true;
 		}
+		else if(node->type == 1)
+			directoryCheck(node);
 		
 		// Link count sanity check
 		// ???
