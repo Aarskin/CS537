@@ -9,6 +9,7 @@ FILE* file;
 size_t bmk, superblocksize, dinodesize, direntsize, expected;
 struct superblock* super;
 struct dinode* inodes;
+struct fsck_status* status;
 
 struct cross_ref
 {
@@ -31,18 +32,17 @@ void inode_dump()
 	int i, j;
 	struct dinode* node;
 	
-	for(i = 0; i < 200; i++)
+	for(i = 0; i < 35; i++)
 	{
-		printf("\n");
 		node = &inodes[i];
-		printf("INODE # %d\n", i);
+		printf("INODE # %d\t", i);
 
 		if(node->type > 3 || node->type < 0)
-			printf("---------------------------------------------------------------------------------------------->");
+			printf("*****");
 
-		printf("Type:\t%hd\n", node->type);
-		printf("Links:\t%hd\n", node->nlink);
-		printf("Size:\t%d\n", node->size);
+		printf("Type:\t%hd\t", node->type);
+		printf("Links:\t%hd\t", node->nlink);
+		printf("Size:\t%d\t", node->size);
 		printf("Blocks: | ");
 		
 		for(j = 0; j < 13; j++)
@@ -94,7 +94,9 @@ int main(int argc, char* argv[])
 	super = (struct superblock*)buff;
 
 	// Seek to the first inode (block 2)
-	fseek(file, (IBLOCK(1)*BSIZE), SEEK_SET); 
+	fseek(file, (IBLOCK(1)*BSIZE), SEEK_SET);
+	size_t tmp = ftell(file); // where are we?
+	fseek(file, tmp, SEEK_SET); 
 	
 	// Read in all the inodes
 	buff = malloc(dinodesize*super->ninodes);
@@ -104,7 +106,7 @@ int main(int argc, char* argv[])
 	inodes = (struct dinode*)buff;
 	
 	// Seek to the bitmap (block ?)
-	fseek(file, 28*BSIZE, SEEK_SET);
+	fseek(file, 28*BSIZE, SEEK_SET);	
 	
 	// Bitmap should be the block just after the inodes (SEEK_CUR)
 	buff = malloc(128);
@@ -114,9 +116,15 @@ int main(int argc, char* argv[])
 	
 	inode_dump();
 	
+	int i = 0;
+	
 	// Check it until we don't find any errors
 	while(1)
 	{
+		// debugging output
+		i++;
+		printf("Pass: %d\n", i);
+		
 		status = fsck(super, inodes, buff);
 		
 		if(status->error_found && !status->error_corrected)
@@ -127,6 +135,26 @@ int main(int argc, char* argv[])
 			break;
 		}
 	}
+	
+	
+	
+	// debug only ///////////////////////////////////////////////////////////////
+	
+	fflush(file);
+	
+	// Seek to the first inode (block 2)
+	fseek(file, (IBLOCK(1)*BSIZE), SEEK_SET); 
+	
+	// Read in all the inodes
+	buff = malloc(dinodesize*super->ninodes);
+	if(buff == NULL) perror("DINODE!");
+	bmk = fread(buff, dinodesize, super->ninodes, file);
+	if(bmk != super->ninodes) perror("DINODE@");
+	inodes = (struct dinode*)buff;
+	
+	inode_dump();
+	
+	/////////////////////////////////////////////////////////////////////////////
 
 	// Free it
 	fclose (file);
@@ -162,15 +190,20 @@ bool blockValid(int block, char* bmap)
 }
 
 // Write a fix to the specified block number
-void write_fix(int block_num, char* fix)
-{	
+void write_fix(int block_num, int offset, char* fix, size_t size)
+{
+
 	size_t pos = ftell(file); // save
-	fseek(file, block_num*BSIZE, SEEK_SET);
-	fwrite(fix, sizeof(fix), 1, file);
+	size_t loc = block_num*BSIZE+(dinodesize*offset);
+	fseek(file, loc, SEEK_SET);
+	assert(fwrite(fix, size, 1, file) == 1);
+	
+	printf("wrote: %s\t to %zd\n", fix, loc);
+	
 	fseek(file, pos, SEEK_SET);
 }
 
-void directoryCheck(struct dinode* inode)
+void directoryCheck(struct dinode* inode, int inum)
 {
 	int i, j, block;
 	size_t pos = ftell(file); // save
@@ -193,17 +226,42 @@ void directoryCheck(struct dinode* inode)
 		assert(fread(dirbuff, direntsize, numentries, file) == numentries);
 		head = (struct dirent*)dirbuff;
 		
-		// Check non-zero entries in the directory
+		printf("Directory @ block: %d\n", block);
+		printf("-----------------\n");
+		// Loop over the actual entries
 		for(j = 0; j < numentries; j++)
 		{
 			dir = &head[j];
+			bool error = false;
+				
+			if(j < 2) // Validate "." & ".."
+			{				
+				
+				if(j == 1 && strncmp(dir->name, ".", sizeof(dir->name)) == 0)
+					error = true;
+				if(j == 2 && strncmp(dir->name, "..", sizeof(dir->name)) == 0)
+					error = true;			
+				if(inodes[dir->inum].type != 1)
+					error = true;
+					
+				if(error) // wipe the inode
+				{
+					status->error_found = true;
+					// Probably corrupted, wipe the inode that got us here, write-back
+					// STILL NEED TO UPDATE BITMAP						
+					memset(inode, 0, dinodesize);
+					write_fix(IBLOCK(inum), inum%IPB, (char*)inode, dinodesize);
+					status->error_corrected = true;
+				}
+			}
 			
 			if(dir->inum == 0)
-				continue;
+				continue;			
 				
 			printf("%d: ", dir->inum);
 			printf("%s\n", dir->name);
 		}
+		printf("-----------------\n");
 	}
 	
 	// Transparent, put the file pos back where you found it
@@ -218,7 +276,7 @@ struct fsck_status* fsck(struct superblock* super, struct dinode* inodes, char* 
 	uint bitblocks, usedblocks;
 	struct dinode* node;
 	struct cross_ref blockRefs[super->size];
-	struct fsck_status* status = malloc(sizeof(struct fsck_status));
+	status = malloc(sizeof(struct fsck_status));
 	
 	// debug only
 	//bitmap_dump(bmap);
@@ -254,7 +312,7 @@ struct fsck_status* fsck(struct superblock* super, struct dinode* inodes, char* 
   		((struct superblock*)fix)->size = expected;
   		((struct superblock*)fix)->ninodes = super->ninodes;
   		((struct superblock*)fix)->nblocks = super->nblocks;
-  		write_fix(1, fix);
+  		write_fix(1, 0, fix, superblocksize);
   		status->error_corrected = true;
   	}
   	
@@ -273,7 +331,7 @@ struct fsck_status* fsck(struct superblock* super, struct dinode* inodes, char* 
 	}
 	
 	// "When you encounter a bad inode, the only thing you can do is clear it."
-	for(i = 0; i < super->ninodes; i++)
+	for(i = 1; i < super->ninodes; i++)
 	{
 		node = &inodes[i];
 		
@@ -296,7 +354,7 @@ struct fsck_status* fsck(struct superblock* super, struct dinode* inodes, char* 
 			status->error_corrected = true;
 		}
 		else if(node->type == 1)
-			directoryCheck(node);
+			directoryCheck(node, i);
 		
 		// Link count sanity check
 		// ???
