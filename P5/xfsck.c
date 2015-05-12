@@ -199,7 +199,7 @@ bool blockValid(int block, char* bmap)
 	return false;
 }
 
-void bitMark(bool valid, int block, char* bmap)
+void bitMark(bool valid, int block)
 {
 	size_t pos = ftell(file); // save
 	int bit = block % BSIZE; // index into block bits
@@ -283,10 +283,11 @@ void directoryCheck(struct dinode* inode, int inum)
 				if(error) // wipe the inode
 				{
 					status->error_found = true;
-					// Probably corrupted, wipe the inode that got us here, write-back
-					// STILL NEED TO UPDATE BITMAP						
+					// Probably corrupted, wipe the inode that got us here, write-back						
 					memset(inode, 0, dinodesize);
 					write_fix(IBLOCK(inum), inum%IPB, (char*)inode, dinodesize);
+					// Also mark the bitmap unused
+					bitMark(false, block);
 					status->error_corrected = true;
 				}
 			}
@@ -306,16 +307,6 @@ void directoryCheck(struct dinode* inode, int inum)
 
 struct fsck_status* fsck(struct superblock* super, struct dinode* inodes, char* bmap)
 {
-	bitMark(false, 13, bmap);
-	bitMark(false, 0, bmap);
-	bitMark(false, 55, bmap);
-
-
-
-
-
-
-
 	int i, j;
 	int refblocks = NDIRECT + 1;
 	uint blocknum;
