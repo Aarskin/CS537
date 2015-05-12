@@ -15,6 +15,7 @@ struct cross_ref
 {
 	bool bitmap;
 	bool inoderef;
+	int links;
 };
 
 void bitmap_dump(char* bmap)
@@ -322,7 +323,7 @@ struct fsck_status* fsck(struct superblock* super, struct dinode* inodes, char* 
 	uint blocknum;
 	uint bitblocks, usedblocks;
 	struct dinode* node;
-	struct cross_ref blockRefs[super->size];
+	struct cross_ref blockRefs[super->size]; // one for each block
 	status = malloc(sizeof(struct fsck_status));
 	
 	// debug only
@@ -374,7 +375,10 @@ struct fsck_status* fsck(struct superblock* super, struct dinode* inodes, char* 
 	for(i = 0; i < super->size; i++)
 	{
 		blockRefs[i].bitmap = blockValid(i, bmap); // What's the bitmap think now?
-		blockRefs[i].inoderef = false; // Initialize
+		
+		// Initialize
+		blockRefs[i].inoderef = false; 
+		blockRefs[i].links = 0;
 	}
 	
 	// "When you encounter a bad inode, the only thing you can do is clear it."
@@ -385,8 +389,9 @@ struct fsck_status* fsck(struct superblock* super, struct dinode* inodes, char* 
 		// Size sanity check
 		if(node->size > data_size)
 		{
-			status->error_found = true;			
+			status->error_found = true;
 			memset(&inodes[i], 0, sizeof(inodes[i])); // Clear it	
+			write_fix(IBLOCK(i), i%IPB, (char*)&inodes[i], dinodesize);
 			status->error_corrected = true;
 		}
 		
@@ -398,10 +403,11 @@ struct fsck_status* fsck(struct superblock* super, struct dinode* inodes, char* 
 		{
 			status->error_found = true;			
 			memset(&inodes[i], 0, sizeof(inodes[i])); // Clear it
+			write_fix(IBLOCK(i), i%IPB, (char*)&inodes[i], dinodesize);
 			status->error_corrected = true;
 		}
 		else if(node->type == 1)
-			directoryCheck(node, i);
+			//directoryCheck(node, i);
 		
 		// Link count sanity check
 		// ???
@@ -418,7 +424,7 @@ struct fsck_status* fsck(struct superblock* super, struct dinode* inodes, char* 
 				status->error_found = true;			
 				memset(&inodes[i], 0, sizeof(inodes[i])); // Clear it
 				status->error_corrected = true;
-			}				
+			}		
 			
 			blockRefs[blocknum].inoderef = true;
 		} 
