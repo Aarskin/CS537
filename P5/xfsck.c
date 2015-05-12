@@ -206,23 +206,33 @@ void bitMark(bool valid, int block)
 	int index = bit / 8;
 	int sa = bit % 8;
 	
-	size_t loc = BBLOCK(block, super->ninodes)*BSIZE+index*sizeof(char); 
+	size_t loc = BBLOCK(block, super->ninodes)*BSIZE+index*sizeof(char);
 	char* new = malloc(sizeof(char));
+	char* old = malloc(sizeof(char));
+	char mask;
+	
+	// Grab what's there (transparently)
+	size_t pread = ftell(file);
+	fseek(file, loc, SEEK_SET);
+	fread(old, sizeof(char), 1, file);
+	fseek(file, pread, SEEK_SET);
 	
 	// Build mask
 	if(valid)
 	{
-		*new = 1<<sa;
+		mask = *old | 1<<sa;
+		*new = mask;
 	}
 	else
 	{
-		*new = ~(1<<sa);
+		mask = *old & ~(1<<sa);
+		*new = mask;
 	}	
 		
 	fseek(file, loc, SEEK_SET); // go to the block
 	fwrite(new, sizeof(char), 1, file); // Write it back
 	
-	fseek(file, pos, SEEK_SET);
+	fseek(file, pos, SEEK_SET); // transparent
 }
 
 // Write a fix to the specified block number
