@@ -281,12 +281,11 @@ void directoryCheck(struct dinode* inode, int inum)
 			dir = &head[j];
 			bool error = false;
 				
-			if(j < 2) // Validate "." & ".."
+			if(j < 1) // Validate "." & ".."
 			{				
-				
-				if(j == 1 && strncmp(dir->name, ".", sizeof(dir->name)) == 0)
+				if(j == 0 && strncmp(dir->name, ".", sizeof(dir->name)) != 0)
 					error = true;
-				if(j == 2 && strncmp(dir->name, "..", sizeof(dir->name)) == 0)
+				if(j == 1 && strncmp(dir->name, "..", sizeof(dir->name)) != 0)
 					error = true;			
 				if(inodes[dir->inum].type != 1)
 					error = true;
@@ -423,8 +422,9 @@ struct fsck_status* fsck(struct superblock* super, struct dinode* inodes, char* 
 			{
 				status->error_found = true;			
 				memset(&inodes[i], 0, sizeof(inodes[i])); // Clear it
+				write_fix(IBLOCK(i), i%IPB, (char*)&inodes[i], dinodesize);
 				status->error_corrected = true;
-			}		
+			}
 			
 			blockRefs[blocknum].inoderef = true;
 		} 
